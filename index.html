@@ -1,48 +1,65 @@
-
 <!DOCTYPE html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Memory Training Pro</title>
+    <title>メモリープロ - 記憶術マスター</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Babel Standalone for JSX compilation in browser -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Noto+Sans+JP:wght@400;500;700;900&display=swap');
+        
+        :root {
+            --bg-color: #f8fafc;
+            --text-color: #1e293b;
+        }
+
+        .dark {
+            --bg-color: #020617;
+            --text-color: #f8fafc;
+        }
+
         body {
             font-family: 'Inter', 'Noto Sans JP', sans-serif;
-            background-color: #f8fafc;
+            background-color: var(--bg-color);
+            color: var(--text-color);
             overscroll-behavior-y: contain;
+            transition: background-color 0.3s ease, color 0.3s ease;
         }
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-        .no-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
         @keyframes countdown-pulse {
             0% { transform: scale(1); opacity: 1; }
             50% { transform: scale(1.1); opacity: 0.8; }
             100% { transform: scale(1); opacity: 1; }
         }
-        .animate-countdown {
-            animation: countdown-pulse 1s ease-in-out infinite;
+        .animate-countdown { animation: countdown-pulse 1s ease-in-out infinite; }
+        
+        .safe-area-pb { padding-bottom: env(safe-area-inset-bottom); }
+
+        .dark .main-card {
+            background-color: #0f172a;
+            border-color: #1e293b;
+            color: #f8fafc;
         }
-        .safe-area-pb {
-            padding-bottom: env(safe-area-inset-bottom);
+        .dark .sub-card {
+            background-color: #1e293b;
+            border-color: #334155;
+            color: #f8fafc;
+        }
+
+        .question-item {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .question-blur {
+            filter: blur(8px);
+            opacity: 0.3;
+            pointer-events: none;
         }
     </style>
-<script type="importmap">
-{
-  "imports": {
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "react": "https://esm.sh/react@^19.2.3"
-  }
-}
-</script>
 <link rel="stylesheet" href="/index.css">
 </head>
 <body>
@@ -54,6 +71,9 @@
 
         // --- Constants & Utilities ---
         const DAYS_JP = ['日', '月', '火', '水', '木', '金', '土'];
+        const DAYS_JP_LONG = ['日曜日', '月曜日', '火曜日', '水曜日', '木曜日', '金曜日', '土曜日'];
+        const DAYS_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const DAYS_EN_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
         const HIRAGANA_SET = 'あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへ'.split('');
 
         const getJapaneseEra = (date) => {
@@ -61,7 +81,6 @@
             const month = date.getMonth() + 1;
             const day = date.getDate();
             const fullDate = year * 10000 + month * 100 + day;
-
             if (fullDate >= 20190501) return `令和${year - 2018 === 1 ? '元' : year - 2018}年`;
             if (fullDate >= 19890108) return `平成${year - 1988 === 1 ? '元' : year - 1988}年`;
             if (fullDate >= 19261225) return `昭和${year - 1925 === 1 ? '元' : year - 1925}年`;
@@ -70,290 +89,197 @@
             return `${year}年`;
         };
 
-        const formatTime = (ms) => {
+        const formatTime = (ms, formatMode = 'mm:ss') => {
             const totalSeconds = ms / 1000;
-            return `${totalSeconds.toFixed(2)}s`;
+            if (formatMode === 'ss') return `${totalSeconds.toFixed(2)}秒`;
+            const m = Math.floor(totalSeconds / 60);
+            const s = (totalSeconds % 60).toFixed(2);
+            return `${m}:${s.padStart(5, '0')}`;
         };
 
-        const generateId = () => {
-            return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+        const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+
+        // --- Multi-language Map ---
+        const translations = {
+            ja: {
+                appTitle: 'メモリープロ',
+                calendar: 'カレンダー計算',
+                number: 'ナンバー記憶',
+                letter: 'レターペア',
+                settings: 'アプリ設定',
+                history: '履歴',
+                lang: '表示言語',
+                theme: '外観モード',
+                darkMode: 'ダークモード',
+                lightMode: 'ライトモード',
+                timerFormat: 'タイマー表示',
+                minSec: '分:秒',
+                onlySec: '秒のみ',
+                backup: 'データ管理',
+                export: 'バックアップ作成 (保存)',
+                import: 'データの復元 (読み込み)',
+                reset: 'データを初期化',
+                resetConfirm: '全ての履歴と設定を消去します。よろしいですか？',
+                home: 'ホームへ',
+                penaltyText: 'ミス1問につき30秒加算',
+                start: 'トレーニング開始',
+                back: '戻る',
+                result: 'トレーニング結果',
+                rawTime: '純粋な時間',
+                penalty: 'ペナルティ',
+                finalScore: '最終スコア',
+                retry: 'もう一度挑戦',
+                changeRange: '範囲を変更',
+                gameSettings: 'ゲーム内設定',
+                countdown: 'カウントダウン',
+                showNums: 'ボタンに数字を表示',
+                digitPairs: '桁数',
+                autoNext: '自動送り',
+                autoNextOff: 'オフ',
+                spacing: 'スペース区切り',
+                range: '出題範囲',
+                allRange: '全範囲 (00-99)',
+                yearMode: '表示形式',
+                western: '西暦',
+                era: '和暦',
+                both: '両方',
+                next: '次へ',
+                trainingType: '記憶術トレーニング'
+            },
+            en: {
+                appTitle: 'MemoryPro',
+                calendar: 'Calendar Calc',
+                number: 'Number Memory',
+                letter: 'Letter Pair',
+                settings: 'Settings',
+                history: 'History',
+                lang: 'Language',
+                theme: 'Theme',
+                darkMode: 'Dark Mode',
+                lightMode: 'Light Mode',
+                timerFormat: 'Timer Format',
+                minSec: 'MM:SS',
+                onlySec: 'Seconds',
+                backup: 'Data Backup',
+                export: 'Export Backup',
+                import: 'Import Data',
+                reset: 'Reset All',
+                resetConfirm: 'Clear all history and settings? This cannot be undone.',
+                home: 'Home',
+                penaltyText: '30s penalty per mistake',
+                start: 'Start Session',
+                back: 'Back',
+                result: 'Results',
+                rawTime: 'Raw Time',
+                penalty: 'Penalty',
+                finalScore: 'Final Score',
+                retry: 'Retry',
+                changeRange: 'Change Range',
+                gameSettings: 'Game Settings',
+                countdown: 'Countdown',
+                showNums: 'Show index on buttons',
+                digitPairs: 'Digits',
+                autoNext: 'Auto Next',
+                autoNextOff: 'Off',
+                spacing: 'Use Spacing',
+                range: 'Range',
+                allRange: 'All (00-99)',
+                yearMode: 'Year Style',
+                western: 'Western',
+                era: 'Japanese',
+                both: 'Both',
+                next: 'Next',
+                trainingType: 'Memory Training'
+            }
         };
 
-        // --- Sub-Components ---
+        // --- Components ---
 
-        const BottomNav = ({ currentMode, setMode }) => {
-            const navItems = [
-                { id: 'calendar', label: 'カレンダー', icon: 'fa-calendar-days' },
-                { id: 'number', label: 'ナンバー', icon: 'fa-hashtag' },
-                { id: 'letterpair', label: 'レターペア', icon: 'fa-language' },
-            ];
-
-            return (
-                <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 safe-area-pb z-50">
-                    <div className="container mx-auto max-w-2xl px-2 h-16 flex items-center justify-around">
-                        {navItems.map((item) => (
-                            <button
-                                key={item.id}
-                                onClick={() => setMode(item.id)}
-                                className={`flex flex-col items-center justify-center w-full h-full transition-all gap-1 ${
-                                    currentMode === item.id ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'
-                                }`}
-                            >
-                                <div className={`text-xl ${currentMode === item.id ? 'scale-110' : ''}`}>
-                                    <i className={`fa-solid ${item.icon}`}></i>
-                                </div>
-                                <span className="text-[10px] font-bold uppercase tracking-wider">{item.label}</span>
-                                {currentMode === item.id && (
-                                    <div className="w-1 h-1 bg-indigo-600 rounded-full absolute bottom-2"></div>
-                                )}
-                            </button>
-                        ))}
-                    </div>
-                </nav>
-            );
-        };
-
-        const MasterEditor = ({ mode, onClose }) => {
-            const [mappings, setMappings] = useState({});
-            const [search, setSearch] = useState('');
-            const storageKey = mode === 'number' ? 'memory_pro_numbers' : 'memory_pro_letters';
-
-            useEffect(() => {
-                const saved = localStorage.getItem(storageKey);
-                if (saved) setMappings(JSON.parse(saved));
-            }, [storageKey]);
-
-            const saveMapping = (key, value) => {
-                const newMappings = { ...mappings, [key]: value };
-                setMappings(newMappings);
-                localStorage.setItem(storageKey, JSON.stringify(newMappings));
+        const GlobalSettingsModal = ({ globalSettings, setGlobalSettings, onClose, t }) => {
+            const handleReset = () => { if (window.confirm(t.resetConfirm)) { localStorage.clear(); window.location.reload(); } };
+            const handleExport = () => {
+                const data = {
+                    calendar_history: localStorage.getItem('calendar_history'),
+                    memory_pro_numbers: localStorage.getItem('memory_pro_numbers'),
+                    memory_pro_letters: localStorage.getItem('memory_pro_letters'),
+                    calendar_settings: localStorage.getItem('calendar_settings'),
+                    number_settings: localStorage.getItem('number_settings'),
+                    global_settings: JSON.stringify(globalSettings)
+                };
+                const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `memorypro_backup_${new Date().toISOString().split('T')[0]}.json`;
+                a.click();
+            };
+            const handleImport = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const data = JSON.parse(event.target.result);
+                        if (data.calendar_history) localStorage.setItem('calendar_history', data.calendar_history);
+                        if (data.memory_pro_numbers) localStorage.setItem('memory_pro_numbers', data.memory_pro_numbers);
+                        if (data.memory_pro_letters) localStorage.setItem('memory_pro_letters', data.memory_pro_letters);
+                        if (data.calendar_settings) localStorage.setItem('calendar_settings', data.calendar_settings);
+                        if (data.number_settings) localStorage.setItem('number_settings', data.number_settings);
+                        if (data.global_settings) setGlobalSettings(JSON.parse(data.global_settings));
+                        alert('インポート完了。'); window.location.reload();
+                    } catch (err) { alert('不正なファイル形式です。'); }
+                };
+                reader.readAsText(file);
             };
 
-            const items = mode === 'number' 
-                ? Array.from({ length: 100 }, (_, i) => i.toString().padStart(2, '0'))
-                : HIRAGANA_SET.flatMap(h1 => HIRAGANA_SET.map(h2 => h1 + h2));
-
-            const filteredItems = items.filter(item => 
-                item.includes(search) || (mappings[item] && mappings[item].includes(search))
-            );
-
             return (
-                <div className="fixed inset-0 z-[60] bg-white flex flex-col animate-in slide-in-from-bottom duration-300">
-                    <header className="p-4 border-b border-slate-200 flex items-center justify-between bg-white sticky top-0">
-                        <div className="flex items-center gap-2">
-                            <button onClick={onClose} className="p-2 -ml-2 text-slate-400 hover:text-slate-600">
-                                <i className="fa-solid fa-xmark text-xl"></i>
-                            </button>
-                            <h2 className="font-bold text-slate-800">
-                                {mode === 'number' ? 'ナンバー' : 'レターペア'} マスター登録
+                <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4">
+                    <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-t-[3rem] sm:rounded-[3rem] shadow-2xl p-8 overflow-y-auto max-h-[90vh] no-scrollbar transition-colors">
+                        <div className="flex items-center justify-between mb-8">
+                            <h2 className="text-2xl font-black flex items-center gap-3">
+                                <i className="fa-solid fa-sliders text-indigo-500"></i> {t.settings}
                             </h2>
+                            <button onClick={onClose} className="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors"><i className="fa-solid fa-xmark text-2xl"></i></button>
                         </div>
-                    </header>
-                    <div className="p-4 bg-slate-50 border-b border-slate-200">
-                        <div className="relative">
-                            <i className="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                            <input 
-                                type="text" 
-                                placeholder="組み合わせを検索..."
-                                className="w-full pl-11 pr-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 bg-white"
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                            />
-                        </div>
-                    </div>
-                    <div className="flex-grow overflow-y-auto p-4 space-y-4 no-scrollbar">
-                        <div className="grid grid-cols-1 gap-2">
-                            {filteredItems.slice(0, 50).map((item) => (
-                                <div key={item} className="flex items-center gap-3 p-3 bg-white border border-slate-100 rounded-2xl shadow-sm">
-                                    <div className="w-14 h-10 bg-slate-50 flex items-center justify-center rounded-xl font-bold text-indigo-600 border border-slate-100">
-                                        {item}
-                                    </div>
-                                    <input 
-                                        type="text" 
-                                        placeholder="関連ワードを入力"
-                                        className="flex-grow py-2 px-3 text-sm focus:outline-none bg-transparent"
-                                        value={mappings[item] || ''}
-                                        onChange={(e) => saveMapping(item, e.target.value)}
-                                    />
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                    <footer className="p-4 border-t border-slate-200 bg-white safe-area-pb">
-                        <button onClick={onClose} className="w-full bg-slate-900 text-white font-bold py-4 rounded-2xl shadow-lg transition-all">
-                            保存して閉じる
-                        </button>
-                    </footer>
-                </div>
-            );
-        };
-
-        const CalendarSettingsModal = ({ settings, onSave, onClose }) => {
-            const handleChange = (key, value) => onSave({ ...settings, [key]: value });
-
-            return (
-                <div className="flex-grow flex flex-col p-6 overflow-y-auto no-scrollbar bg-white rounded-3xl">
-                    <div className="flex items-center justify-between mb-8">
-                        <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                            <i className="fa-solid fa-gear text-indigo-600"></i>
-                            カレンダー設定
-                        </h2>
-                        <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-2">
-                            <i className="fa-solid fa-xmark text-xl"></i>
-                        </button>
-                    </div>
-                    <div className="space-y-6">
-                        <section>
-                            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">表示形式</label>
-                            <div className="grid grid-cols-3 gap-1.5">
-                                {['western', 'japanese', 'both'].map((id) => (
-                                    <button
-                                        key={id}
-                                        onClick={() => handleChange('yearMode', id)}
-                                        className={`py-3 rounded-xl border-2 text-sm font-bold transition-all ${
-                                            settings.yearMode === id ? 'bg-indigo-50 border-indigo-600 text-indigo-700 shadow-sm' : 'bg-white border-slate-100 text-slate-400'
-                                        }`}
-                                    >
-                                        {id === 'western' ? '西暦' : id === 'japanese' ? '和暦' : '併記'}
-                                    </button>
-                                ))}
-                            </div>
-                        </section>
-                        <section>
-                            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">カウントダウン</label>
-                            <div className="grid grid-cols-3 gap-1.5">
-                                {[3, 5, 10].map((sec) => (
-                                    <button
-                                        key={sec}
-                                        onClick={() => handleChange('countdownSeconds', sec)}
-                                        className={`py-3 rounded-xl border-2 text-sm font-bold transition-all ${
-                                            settings.countdownSeconds === sec ? 'bg-indigo-50 border-indigo-600 text-indigo-700' : 'bg-white border-slate-100 text-slate-400'
-                                        }`}
-                                    >
-                                        {sec}秒
-                                    </button>
-                                ))}
-                            </div>
-                        </section>
-                        <section className="space-y-3">
-                            <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                                <div>
-                                    <div className="font-bold text-slate-700 text-sm">曜日に数字を表示</div>
-                                    <div className="text-[10px] text-slate-400 font-bold tracking-wider">0=SUN, 1=MON...</div>
-                                </div>
-                                <button
-                                    onClick={() => handleChange('showNumbers', !settings.showNumbers)}
-                                    className={`w-12 h-6 rounded-full relative transition-colors ${settings.showNumbers ? 'bg-indigo-600' : 'bg-slate-300'}`}
-                                >
-                                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all shadow-sm ${settings.showNumbers ? 'left-7' : 'left-1'}`}></div>
-                                </button>
-                            </div>
-                            <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                                <div>
-                                    <div className="font-bold text-slate-700 text-sm">週の開始曜日</div>
-                                </div>
-                                <div className="flex gap-1 bg-white p-1 rounded-xl border border-slate-200">
-                                    {[0, 1].map((opt) => (
-                                        <button
-                                            key={opt}
-                                            onClick={() => handleChange('startDay', opt)}
-                                            className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${
-                                                settings.startDay === opt ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400'
-                                            }`}
-                                        >
-                                            {opt === 0 ? '日' : '月'}
+                        <div className="space-y-8">
+                            <section>
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 block">{t.lang}</label>
+                                <div className="grid grid-cols-2 gap-3">
+                                    {['ja', 'en'].map(l => (
+                                        <button key={l} onClick={() => setGlobalSettings(s => ({...s, lang: l}))} className={`py-4 rounded-3xl border-2 font-bold transition-all ${globalSettings.lang === l ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-600 text-indigo-600 dark:text-indigo-400' : 'border-slate-100 dark:border-slate-800 text-slate-400'}`}>
+                                            {l === 'ja' ? '日本語' : 'English'}
                                         </button>
                                     ))}
                                 </div>
-                            </div>
-                        </section>
-                    </div>
-                    <div className="mt-auto pt-8">
-                        <button onClick={onClose} className="w-full bg-slate-900 text-white font-bold py-4 rounded-2xl shadow-lg transition-all active:scale-95">
-                            保存
-                        </button>
-                    </div>
-                </div>
-            );
-        };
-
-        const CalendarHistory = ({ onClose }) => {
-            const history = useMemo(() => JSON.parse(localStorage.getItem('calendar_history') || '[]'), []);
-            const personalBests = useMemo(() => {
-                const pbs = {};
-                history.forEach(session => {
-                    const key = session.range;
-                    if (!pbs[key] || session.finalScore < pbs[key].finalScore) pbs[key] = session;
-                });
-                return pbs;
-            }, [history]);
-
-            return (
-                <div className="flex-grow flex flex-col p-6 overflow-y-auto no-scrollbar bg-slate-50 rounded-3xl">
-                    <div className="flex items-center justify-between mb-8">
-                        <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                            <i className="fa-solid fa-trophy text-amber-500"></i>
-                            過去のデータ
-                        </h2>
-                        <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-2"><i className="fa-solid fa-xmark text-xl"></i></button>
-                    </div>
-                    <section className="mb-8">
-                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Personal Bests</div>
-                        <div className="grid grid-cols-3 gap-2">
-                            {['recent', 'birthday', 'competition'].map(range => {
-                                const pb = personalBests[range];
-                                return (
-                                    <div key={range} className="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm flex flex-col items-center">
-                                        <span className="text-[9px] font-bold text-slate-400 mb-1">{range === 'recent' ? '最近' : range === 'birthday' ? '誕生日' : '競技'}</span>
-                                        <span className="text-sm font-mono font-black text-indigo-600">{pb ? formatTime(pb.finalScore) : '--.--s'}</span>
-                                    </div>
-                                );
-                            })}
+                            </section>
+                            <section>
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 block">{t.theme}</label>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <button onClick={() => setGlobalSettings(s => ({...s, theme: 'light'}))} className={`py-4 rounded-3xl border-2 font-bold transition-all ${globalSettings.theme === 'light' ? 'bg-indigo-50 border-indigo-600 text-indigo-600' : 'border-slate-100 dark:border-slate-800 text-slate-400'}`}>
+                                        <i className="fa-solid fa-sun mr-2"></i> {t.lightMode}
+                                    </button>
+                                    <button onClick={() => setGlobalSettings(s => ({...s, theme: 'dark'}))} className={`py-4 rounded-3xl border-2 font-bold transition-all ${globalSettings.theme === 'dark' ? 'bg-indigo-900/30 border-indigo-600 text-indigo-400' : 'border-slate-100 dark:border-slate-800 text-slate-400'}`}>
+                                        <i className="fa-solid fa-moon mr-2"></i> {t.darkMode}
+                                    </button>
+                                </div>
+                            </section>
+                            <section>
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 block">{t.backup}</label>
+                                <div className="space-y-3">
+                                    <button onClick={handleExport} className="w-full py-5 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-3xl font-bold flex items-center justify-center gap-3 transition-all"><i className="fa-solid fa-download"></i> {t.export}</button>
+                                    <label className="w-full py-5 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-3xl font-bold flex items-center justify-center gap-3 transition-all cursor-pointer"><i className="fa-solid fa-upload"></i> {t.import}<input type="file" accept=".json" onChange={handleImport} className="hidden" /></label>
+                                    <button onClick={handleReset} className="w-full py-5 bg-red-50 dark:bg-red-900/10 text-red-600 rounded-3xl font-bold border border-red-100 dark:border-red-900/20 flex items-center justify-center gap-3 hover:bg-red-100 dark:hover:bg-red-900/20 transition-all">{t.reset}</button>
+                                </div>
+                            </section>
                         </div>
-                    </section>
-                    <section className="flex-grow">
-                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Training History</div>
-                        {history.length === 0 ? (
-                            <div className="bg-white rounded-3xl p-12 text-center border border-dashed border-slate-200 text-slate-400 text-sm">履歴がありません。</div>
-                        ) : (
-                            <div className="space-y-3">
-                                {history.map((session) => (
-                                    <div key={session.id} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
-                                        <div className="flex flex-col">
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <span className="text-[10px] font-black bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md">
-                                                    {session.range === 'recent' ? '最近' : session.range === 'birthday' ? '誕生日' : '競技'}
-                                                </span>
-                                                <span className="text-[10px] text-slate-400 font-bold">{new Date(session.timestamp).toLocaleDateString()}</span>
-                                            </div>
-                                            <div className="text-base font-mono font-black text-slate-700">
-                                                {formatTime(session.finalScore)}
-                                                {session.penaltySeconds > 0 && <span className="text-red-400 text-[10px] font-bold ml-2">(+{session.penaltySeconds}s)</span>}
-                                            </div>
-                                        </div>
-                                        {session.isCorrectAll ? (
-                                            <div className="w-8 h-8 rounded-full bg-green-50 text-green-500 flex items-center justify-center border border-green-100">
-                                                <i className="fa-solid fa-check text-xs"></i>
-                                            </div>
-                                        ) : (
-                                            <div className="w-8 h-8 rounded-full bg-slate-50 text-slate-300 flex items-center justify-center border border-slate-100">
-                                                <span className="text-[10px] font-black">{5 - session.penaltySeconds/10}/5</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </section>
-                    <div className="pt-8 mt-auto"><button onClick={onClose} className="w-full bg-slate-800 text-white font-bold py-4 rounded-2xl">閉じる</button></div>
+                    </div>
                 </div>
             );
         };
 
-        // --- Main Feature Components ---
-
-        const CalendarTrainer = ({ isSettingsOpen, setIsSettingsOpen, isHistoryOpen, setIsHistoryOpen }) => {
+        const CalendarTrainer = ({ onBack, globalSettings, t }) => {
             const [gameState, setGameState] = useState('idle');
+            const [isLocalSettingsOpen, setIsLocalSettingsOpen] = useState(false);
             const [selectedRange, setSelectedRange] = useState('recent');
             const [activeQuestion, setActiveQuestion] = useState(0);
             const [questions, setQuestions] = useState([]);
@@ -364,15 +290,23 @@
             const [countdownText, setCountdownText] = useState('');
             const [settings, setSettings] = useState(() => {
                 const saved = localStorage.getItem('calendar_settings');
-                return saved ? JSON.parse(saved) : { yearMode: 'both', countdownSeconds: 3, showNumbers: false, startDay: 0 };
+                return saved ? JSON.parse(saved) : { yearMode: 'both', countdownSeconds: 3, showNumbers: false, startDay: 0, timerFormat: 'mm:ss' };
             });
 
             const timerRef = useRef(null);
 
-            const saveSettings = (newSettings) => {
-                setSettings(newSettings);
-                localStorage.setItem('calendar_settings', JSON.stringify(newSettings));
-            };
+            const updateTimer = useCallback(() => {
+                if (gameState === 'playing') {
+                    setCurrentTime(performance.now());
+                    timerRef.current = requestAnimationFrame(updateTimer);
+                }
+            }, [gameState]);
+
+            useEffect(() => {
+                if (gameState === 'playing') timerRef.current = requestAnimationFrame(updateTimer);
+                else if (timerRef.current) cancelAnimationFrame(timerRef.current);
+                return () => { if (timerRef.current) cancelAnimationFrame(timerRef.current); };
+            }, [gameState, updateTimer]);
 
             const generateRandomDate = (range) => {
                 let startYear, endYear;
@@ -388,8 +322,7 @@
 
             const startCountdown = (range) => {
                 setSelectedRange(range); setLaps([]); setFeedback(null); setGameState('countdown');
-                const dates = Array.from({ length: 5 }, () => generateRandomDate(range));
-                setQuestions(dates);
+                setQuestions(Array.from({ length: 5 }, () => generateRandomDate(range)));
                 let count = settings.countdownSeconds;
                 setCountdownText(count.toString());
                 const interval = window.setInterval(() => {
@@ -405,120 +338,154 @@
                 const now = performance.now(); setStartTime(now); setCurrentTime(now);
             };
 
-            const updateTimer = useCallback(() => {
-                if (gameState === 'playing') {
-                    setCurrentTime(performance.now());
-                    timerRef.current = requestAnimationFrame(updateTimer);
-                }
-            }, [gameState]);
-
-            useEffect(() => {
-                if (gameState === 'playing') timerRef.current = requestAnimationFrame(updateTimer);
-                else if (timerRef.current) cancelAnimationFrame(timerRef.current);
-                return () => { if (timerRef.current) cancelAnimationFrame(timerRef.current); };
-            }, [gameState, updateTimer]);
-
             const handleAnswer = (dayIndex) => {
                 if (gameState !== 'playing' || feedback) return;
                 const targetDate = questions[activeQuestion];
                 const correctDayIndex = targetDate.getDay();
                 const isCorrect = dayIndex === correctDayIndex;
                 const now = performance.now();
-                const lapTime = now - startTime;
+                const record = {
+                    questionNumber: activeQuestion + 1,
+                    date: formatDate(targetDate),
+                    correct: isCorrect,
+                    userAnswer: (globalSettings.lang === 'ja' ? DAYS_JP_LONG : DAYS_EN_LONG)[dayIndex],
+                    correctAnswer: (globalSettings.lang === 'ja' ? DAYS_JP_LONG : DAYS_EN_LONG)[correctDayIndex]
+                };
                 setFeedback({ index: activeQuestion, isCorrect });
-                const record = { questionNumber: activeQuestion + 1, date: formatDate(targetDate), time: lapTime, correct: isCorrect, userAnswer: DAYS_JP[dayIndex], correctAnswer: DAYS_JP[correctDayIndex] };
                 setLaps(prev => [...prev, record]);
                 setTimeout(() => {
                     setFeedback(null);
                     if (activeQuestion < 4) setActiveQuestion(prev => prev + 1);
-                    else finishGame([...laps, record], now);
+                    else {
+                        setGameState('finished');
+                        const finalTime = now - startTime;
+                        const mistakes = [...laps, record].filter(l => !l.correct).length;
+                        const session = { id: generateId(), timestamp: Date.now(), range: selectedRange, totalTime: finalTime, penaltySeconds: mistakes * 30, finalScore: finalTime + (mistakes * 30000), laps: [...laps, record], settings };
+                        const history = JSON.parse(localStorage.getItem('calendar_history') || '[]');
+                        history.unshift(session);
+                        localStorage.setItem('calendar_history', JSON.stringify(history.slice(0, 100)));
+                    }
                 }, 300);
-            };
-
-            const finishGame = (finalLaps, endTime) => {
-                setGameState('finished');
-                const totalRawTime = endTime - (endTime - currentTime);
-                const mistakes = finalLaps.filter(l => !l.correct).length;
-                const session = { id: generateId(), timestamp: Date.now(), range: selectedRange, totalTime: totalRawTime, penaltySeconds: mistakes * 10, finalScore: totalRawTime + (mistakes * 10000), isCorrectAll: mistakes === 0, laps: finalLaps, settings };
-                const history = JSON.parse(localStorage.getItem('calendar_history') || '[]');
-                history.unshift(session);
-                localStorage.setItem('calendar_history', JSON.stringify(history.slice(0, 100)));
             };
 
             const formatDate = (date) => {
                 const y = date.getFullYear(), m = date.getMonth() + 1, d = date.getDate(), era = getJapaneseEra(date);
                 if (settings.yearMode === 'japanese') return `${era} ${m}月${d}日`;
-                if (settings.yearMode === 'both') return `${y}年(${era}) ${m}月${d}日`;
-                return `${y}年${m}月${d}日`;
+                if (settings.yearMode === 'both') return `${y}年 (${era}) ${m}月${d}日`;
+                return `${y}年 ${m}月${d}日`;
+            };
+
+            const updateLocalSettings = (key, val) => {
+                const ns = {...settings, [key]: val};
+                setSettings(ns);
+                localStorage.setItem('calendar_settings', JSON.stringify(ns));
             };
 
             const dayList = useMemo(() => {
-                const list = DAYS_JP.map((label, index) => ({ label, index }));
+                const list = (globalSettings.lang === 'ja' ? DAYS_JP : DAYS_EN).map((label, index) => ({ label, index }));
                 if (settings.startDay === 1) { const mon = list.slice(1); mon.push(list[0]); return mon; }
                 return list;
-            }, [settings.startDay]);
-
-            if (isSettingsOpen) return <CalendarSettingsModal settings={settings} onSave={saveSettings} onClose={() => setIsSettingsOpen(false)} />;
-            if (isHistoryOpen) return <CalendarHistory onClose={() => setIsHistoryOpen(false)} />;
+            }, [settings.startDay, globalSettings.lang]);
 
             if (gameState === 'idle') {
                 return (
-                    <div className="flex-grow flex flex-col items-center justify-center p-8 text-center">
-                        <div className="mb-6 p-6 bg-indigo-50 rounded-full text-indigo-600 shadow-inner"><i className="fa-solid fa-calendar-check text-5xl"></i></div>
-                        <h2 className="text-2xl font-bold text-slate-800 mb-2">カレンダー計算</h2>
-                        <p className="text-slate-500 text-sm mb-8 leading-relaxed max-w-xs">5問連続で計測。ミスは<span className="text-red-500 font-bold">+10s</span>のペナルティ。</p>
-                        <button onClick={() => setGameState('range_select')} className="w-full max-w-xs bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-2xl shadow-xl shadow-indigo-100 transition-all active:scale-95">はじめる</button>
-                    </div>
-                );
-            }
-
-            if (gameState === 'range_select') {
-                return (
-                    <div className="flex-grow flex flex-col p-6">
-                        <h2 className="text-xl font-bold text-slate-800 mb-6 text-center">出題範囲を選択</h2>
-                        <div className="space-y-3">
-                            {[{ id: 'recent', label: '最近', desc: '去年 〜 来年', icon: 'fa-clock-rotate-left' }, { id: 'birthday', label: '誕生日', desc: '過去80年', icon: 'fa-cake-candles' }, { id: 'competition', label: '競技', desc: '1500年 〜 2500年', icon: 'fa-trophy' }].map(range => (
-                                <button key={range.id} onClick={() => startCountdown(range.id)} className="w-full flex items-center p-4 bg-white hover:bg-indigo-50 border border-slate-200 rounded-2xl transition-all shadow-sm">
-                                    <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 mr-4"><i className={`fa-solid ${range.icon} text-xl`}></i></div>
-                                    <div className="text-left"><div className="font-bold text-slate-700">{range.label}</div><div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{range.desc}</div></div>
-                                </button>
-                            ))}
+                    <div className="flex-grow flex flex-col p-6 sm:p-10 transition-colors">
+                        <div className="flex justify-between items-center mb-10">
+                            <button onClick={onBack} className="w-12 h-12 flex items-center justify-center bg-slate-100 dark:bg-slate-800 rounded-2xl text-slate-500 hover:text-indigo-500 transition-all"><i className="fa-solid fa-home text-xl"></i></button>
+                            <h2 className="text-xl font-black">{t.calendar}</h2>
+                            <button onClick={() => setIsLocalSettingsOpen(true)} className="w-12 h-12 flex items-center justify-center bg-slate-100 dark:bg-slate-800 rounded-2xl text-slate-500 hover:text-indigo-500 transition-all"><i className="fa-solid fa-cog text-xl"></i></button>
                         </div>
+                        <div className="flex-grow flex flex-col items-center justify-center text-center">
+                            <div className="mb-8 p-8 bg-indigo-50 dark:bg-indigo-900/20 rounded-full text-indigo-600 dark:text-indigo-400 shadow-inner"><i className="fa-solid fa-calendar-days text-6xl"></i></div>
+                            <p className="text-slate-500 dark:text-slate-400 text-sm mb-12 leading-relaxed max-w-xs">{t.penaltyText}</p>
+                            <div className="w-full space-y-4 max-w-sm">
+                                {[{id:'recent',label:t.ja?'最近':'Recent',desc:t.ja?'去年〜来年':'Last-Next Year',icon:'fa-clock'}, {id:'birthday',label:t.ja?'誕生日':'Birthday',desc:t.ja?'過去80年':'Past 80Y',icon:'fa-cake-candles'}, {id:'competition',label:t.ja?'競技':'Pro',desc:'1500-2500',icon:'fa-trophy'}].map(r => (
+                                    <button key={r.id} onClick={() => startCountdown(r.id)} className="w-full flex items-center p-5 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-3xl hover:border-indigo-500 dark:hover:border-indigo-400 shadow-sm transition-all group">
+                                        <div className="w-12 h-12 bg-slate-50 dark:bg-slate-700 rounded-2xl flex items-center justify-center text-slate-400 group-hover:text-indigo-500 transition-colors mr-5"><i className={`fa-solid ${r.icon} text-xl`}></i></div>
+                                        <div className="text-left">
+                                            <div className="font-black">{r.label}</div>
+                                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{r.desc}</div>
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {isLocalSettingsOpen && (
+                            <div className="fixed inset-0 z-[110] bg-black/70 flex items-center justify-center p-4">
+                                <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[3rem] p-8 shadow-2xl overflow-y-auto max-h-[90vh] no-scrollbar">
+                                    <h3 className="text-xl font-black mb-8 flex items-center gap-2"><i className="fa-solid fa-cog"></i> {t.gameSettings}</h3>
+                                    <div className="space-y-6">
+                                        <section>
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block">{t.countdown}</label>
+                                            <div className="grid grid-cols-3 gap-2">
+                                                {[3, 5, 10].map(s => (
+                                                    <button key={s} onClick={() => updateLocalSettings('countdownSeconds', s)} className={`py-3 rounded-2xl border-2 font-bold ${settings.countdownSeconds === s ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-600 text-indigo-600 dark:text-indigo-400' : 'border-slate-100 dark:border-slate-800'}`}>{s}秒</button>
+                                                ))}
+                                            </div>
+                                        </section>
+                                        <section>
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block">{t.yearMode}</label>
+                                            <div className="grid grid-cols-3 gap-2">
+                                                {['western', 'japanese', 'both'].map(m => (
+                                                    <button key={m} onClick={() => updateLocalSettings('yearMode', m)} className={`py-3 rounded-2xl border-2 font-bold text-xs ${settings.yearMode === m ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-600 text-indigo-600 dark:text-indigo-400' : 'border-slate-100 dark:border-slate-800'}`}>{t[m] || m}</button>
+                                                ))}
+                                            </div>
+                                        </section>
+                                        <section>
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block">{t.timerFormat}</label>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                {['mm:ss', 'ss'].map(f => (
+                                                    <button key={f} onClick={() => updateLocalSettings('timerFormat', f)} className={`py-3 rounded-2xl border-2 font-bold text-xs ${settings.timerFormat === f ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-600 text-indigo-600 dark:text-indigo-400' : 'border-slate-100 dark:border-slate-800'}`}>{f === 'mm:ss' ? t.minSec : t.onlySec}</button>
+                                                ))}
+                                            </div>
+                                        </section>
+                                        <section>
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block">{t.showNums}</label>
+                                            <button onClick={() => updateLocalSettings('showNumbers', !settings.showNumbers)} className={`w-full py-4 rounded-2xl border-2 font-bold transition-all ${settings.showNumbers ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-600 text-indigo-600 dark:text-indigo-400' : 'border-slate-100 dark:border-slate-800 text-slate-400'}`}>{settings.showNumbers ? 'ON' : 'OFF'}</button>
+                                        </section>
+                                    </div>
+                                    <button onClick={() => setIsLocalSettingsOpen(false)} className="w-full mt-10 py-5 bg-slate-900 dark:bg-indigo-600 text-white font-black rounded-3xl transition-all shadow-lg active:scale-95">{t.back}</button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 );
             }
 
-            if (gameState === 'countdown') {
-                return (
-                    <div className="flex-grow flex flex-col items-center justify-center p-8 bg-indigo-600 text-white">
-                        <div className="text-8xl sm:text-[10rem] font-black animate-countdown">{countdownText}</div>
-                    </div>
-                );
-            }
+            if (gameState === 'countdown') return <div className="flex-grow flex items-center justify-center bg-indigo-600 text-white"><div className="text-7xl sm:text-9xl font-black animate-countdown px-4 text-center">{countdownText}</div></div>;
 
             if (gameState === 'playing') {
                 return (
-                    <div className="flex-grow flex flex-col p-4 sm:p-6 overflow-hidden">
-                        <div className="flex justify-between items-center mb-6 bg-slate-50 px-4 py-3 rounded-2xl border border-slate-100">
-                            <div className="flex flex-col"><span className="text-[10px] font-black text-slate-400 uppercase">TIME</span><span className="text-2xl font-mono font-bold text-slate-800">{formatTime(currentTime - startTime)}</span></div>
-                            <div className="flex flex-col items-end"><span className="text-[10px] font-black text-slate-400 uppercase">PROGRESS</span><span className="text-2xl font-bold text-indigo-600">{activeQuestion + 1} / 5</span></div>
+                    <div className="flex-grow flex flex-col p-4 sm:p-6 overflow-hidden transition-colors">
+                        <div className="flex justify-between items-center mb-6 bg-slate-50 dark:bg-slate-800/50 p-5 rounded-3xl border border-slate-100 dark:border-slate-800">
+                            <div className="flex flex-col"><span className="text-[10px] font-black text-slate-400 tracking-widest uppercase">経過時間</span><span className="text-2xl font-mono font-black">{formatTime(currentTime - startTime, settings.timerFormat)}</span></div>
+                            <div className="flex flex-col items-end"><span className="text-[10px] font-black text-slate-400 tracking-widest uppercase">ステージ</span><span className="text-2xl font-black text-indigo-600 dark:text-indigo-400">{activeQuestion + 1} / 5</span></div>
                         </div>
-                        <div className="flex-grow space-y-4 overflow-y-auto no-scrollbar mb-6">
-                            {questions.map((date, idx) => (
-                                <div key={idx} className={`p-4 rounded-3xl border transition-all duration-300 flex items-center justify-between ${idx === activeQuestion ? 'bg-indigo-50 border-indigo-200' : idx < laps.length ? 'bg-slate-50 opacity-60' : 'opacity-30'}`}>
-                                    <div className="flex items-center gap-4">
-                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${idx === activeQuestion ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-500'}`}>{idx + 1}</div>
-                                        <div className="font-bold">{formatDate(date)}</div>
+                        
+                        <div className="flex-grow space-y-3 overflow-y-auto no-scrollbar py-4">
+                            {questions.map((q, idx) => {
+                                const isAnswered = idx < laps.length;
+                                const isActive = idx === activeQuestion;
+                                return (
+                                    <div key={idx} className={`p-5 rounded-3xl border transition-all duration-500 question-item ${isActive ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-600 scale-[1.02] shadow-lg shadow-indigo-500/10' : isAnswered ? 'bg-slate-50 dark:bg-slate-800/40 border-slate-100 dark:border-slate-800 opacity-60' : 'question-blur'}`}>
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-4">
+                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-xs ${isActive ? 'bg-indigo-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-500'}`}>{idx + 1}</div>
+                                                <span className={`font-black ${isActive ? 'text-xl' : 'text-sm opacity-50'}`}>{isActive || isAnswered ? formatDate(q) : '????年??月??日'}</span>
+                                            </div>
+                                            {isAnswered && <i className={`fa-solid ${laps[idx].correct ? 'fa-circle-check text-green-500' : 'fa-circle-xmark text-red-400'} text-xl`}></i>}
+                                        </div>
                                     </div>
-                                    {idx < laps.length && <i className={`fa-solid ${laps[idx].correct ? 'fa-circle-check text-green-500' : 'fa-circle-xmark text-red-500'} text-xl`}></i>}
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
-                        <div className="mt-auto grid grid-cols-7 gap-1">
+
+                        <div className="mt-4 grid grid-cols-7 gap-1 sm:gap-2">
                             {dayList.map(({ label, index }) => (
-                                <button key={label} onClick={() => handleAnswer(index)} className={`py-5 flex flex-col items-center justify-center gap-1 rounded-xl shadow-sm transform active:scale-90 border ${index === 0 ? 'text-red-500 bg-red-50' : index === 6 ? 'text-blue-500 bg-blue-50' : 'text-slate-700 bg-white border-slate-200'}`}>
-                                    <span className="font-bold text-sm sm:text-base">{label}</span>
-                                    {settings.showNumbers && <span className="text-[9px] font-black opacity-40">{index}</span>}
+                                <button key={label} onClick={() => handleAnswer(index)} className={`py-6 sm:py-8 flex flex-col items-center justify-center gap-2 rounded-2xl shadow-sm transform active:scale-90 border dark:border-slate-800 ${index === 0 ? 'text-red-500 bg-red-50 dark:bg-red-900/10' : index === 6 ? 'text-blue-500 bg-blue-50 dark:bg-blue-900/10' : 'bg-white dark:bg-slate-800'}`}>
+                                    <span className="font-black text-base">{label}</span>
+                                    {settings.showNumbers && <span className="text-[10px] font-black opacity-30">{index}</span>}
                                 </button>
                             ))}
                         </div>
@@ -526,152 +493,246 @@
                 );
             }
 
-            const latestSession = JSON.parse(localStorage.getItem('calendar_history') || '[]')[0];
+            if (gameState === 'finished') {
+                const latest = JSON.parse(localStorage.getItem('calendar_history') || '[]')[0];
+                return (
+                    <div className="flex-grow flex flex-col p-8 overflow-y-auto no-scrollbar">
+                        <h2 className="text-2xl font-black mb-8 flex items-center gap-3"><i className="fa-solid fa-square-poll-vertical text-indigo-500"></i> {t.result}</h2>
+                        <div className="bg-indigo-600 text-white rounded-[2.5rem] p-10 mb-10 shadow-xl shadow-indigo-500/20">
+                            <div className="text-xs font-black opacity-60 uppercase tracking-widest mb-2">{t.finalScore}</div>
+                            <div className="text-5xl font-mono font-black mb-8">{formatTime(latest.finalScore, settings.timerFormat)}</div>
+                            <div className="grid grid-cols-2 gap-8 pt-8 border-t border-white/20">
+                                <div><span className="text-[10px] font-black opacity-60 uppercase block mb-1">{t.rawTime}</span><span className="font-bold text-lg">{formatTime(latest.totalTime, settings.timerFormat)}</span></div>
+                                <div><span className="text-[10px] font-black opacity-60 uppercase block mb-1">{t.penalty}</span><span className="font-bold text-lg">+{latest.penaltySeconds}秒</span></div>
+                            </div>
+                        </div>
+                        <div className="space-y-3 mb-12">
+                            {latest.laps.map((lap, i) => (
+                                <div key={i} className="bg-white dark:bg-slate-800 rounded-3xl p-5 border border-slate-100 dark:border-slate-800 flex items-center justify-between shadow-sm">
+                                    <div className="flex items-center gap-4">
+                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-xs ${lap.correct ? 'bg-green-100 dark:bg-green-900/30 text-green-600' : 'bg-red-100 dark:bg-red-900/30 text-red-600'}`}>{i + 1}</div>
+                                        <div className="flex flex-col"><span className="text-[10px] text-slate-400 font-bold uppercase">{lap.date}</span><span className="text-sm font-black">{lap.userAnswer} {!lap.correct && <span className="text-red-400 ml-2">→ {lap.correctAnswer}</span>}</span></div>
+                                    </div>
+                                    <i className={`fa-solid ${lap.correct ? 'fa-circle-check text-green-500' : 'fa-circle-xmark text-red-400'} text-2xl`}></i>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="mt-auto space-y-3">
+                            <button onClick={() => startCountdown(selectedRange)} className="w-full py-5 bg-indigo-600 text-white font-black rounded-3xl shadow-lg shadow-indigo-500/20 active:scale-95 transition-all">{t.retry}</button>
+                            <button onClick={() => setGameState('idle')} className="w-full py-5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 font-black rounded-3xl active:scale-95 transition-all">{t.changeRange}</button>
+                        </div>
+                    </div>
+                );
+            }
+        };
+
+        const NumberTrainer = ({ onBack, globalSettings, t }) => {
+            const [currentValue, setCurrentValue] = useState('');
+            const [gameState, setGameState] = useState('playing');
+            const [isLocalSettingsOpen, setIsLocalSettingsOpen] = useState(false);
+            const [history, setHistory] = useState([]);
+            const [settings, setSettings] = useState(() => {
+                const saved = localStorage.getItem('number_settings');
+                return saved ? JSON.parse(saved) : { digitPairs: 2, range: 'all', autoNext: 0, spacing: true };
+            });
+            const autoTimerRef = useRef(null);
+
+            const generate = useCallback(() => {
+                let res = '';
+                const count = settings.digitPairs;
+                for(let i=0; i<count; i++) {
+                    let part = Math.floor(Math.random() * 100).toString().padStart(2, '0');
+                    if(settings.range !== 'all') {
+                        const start = parseInt(settings.range);
+                        part = (Math.floor(Math.random() * 10) + start).toString().padStart(2, '0');
+                    }
+                    res += part;
+                    if(settings.spacing && i < count - 1) res += ' ';
+                }
+                return res;
+            }, [settings]);
+
+            useEffect(() => {
+                setCurrentValue(generate());
+                return () => { if(autoTimerRef.current) clearInterval(autoTimerRef.current); };
+            }, [generate]);
+
+            useEffect(() => {
+                if(settings.autoNext > 0 && gameState === 'playing') {
+                    autoTimerRef.current = setInterval(() => { next(); }, settings.autoNext * 1000);
+                } else { if(autoTimerRef.current) clearInterval(autoTimerRef.current); }
+                return () => { if(autoTimerRef.current) clearInterval(autoTimerRef.current); };
+            }, [settings.autoNext, gameState]);
+
+            const next = () => {
+                setHistory(prev => [currentValue, ...prev].slice(0, 5));
+                setCurrentValue(generate());
+            };
+
+            const updateSettings = (key, val) => {
+                const ns = {...settings, [key]: val};
+                setSettings(ns);
+                localStorage.setItem('number_settings', JSON.stringify(ns));
+            };
+
             return (
-                <div className="flex-grow flex flex-col p-6 overflow-y-auto no-scrollbar">
-                    <h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2"><i className="fa-solid fa-square-poll-vertical text-indigo-600"></i>リザルト</h2>
-                    {latestSession && (
-                        <div className="bg-indigo-600 text-white rounded-3xl p-6 mb-8 shadow-xl shadow-indigo-100">
-                            <div className="text-xs font-bold opacity-80 uppercase tracking-widest mb-1">FINAL SCORE</div>
-                            <div className="text-5xl font-mono font-black mb-4">{formatTime(latestSession.finalScore)}</div>
-                            <div className="grid grid-cols-2 gap-4 text-sm font-bold bg-white/10 p-4 rounded-2xl">
-                                <div><span className="opacity-70 block text-[10px] uppercase">Raw Time</span>{formatTime(latestSession.totalTime)}</div>
-                                <div><span className="opacity-70 block text-[10px] uppercase">Penalty</span><span>+{latestSession.penaltySeconds}s</span></div>
+                <div className="flex-grow flex flex-col p-6 sm:p-10 transition-colors">
+                    <div className="flex justify-between items-center mb-10">
+                        <button onClick={onBack} className="w-12 h-12 flex items-center justify-center bg-slate-100 dark:bg-slate-800 rounded-2xl text-slate-500 transition-all"><i className="fa-solid fa-home text-xl"></i></button>
+                        <h2 className="text-xl font-black">{t.number}</h2>
+                        <button onClick={() => setIsLocalSettingsOpen(true)} className="w-12 h-12 flex items-center justify-center bg-slate-100 dark:bg-slate-800 rounded-2xl text-slate-500 transition-all"><i className="fa-solid fa-cog text-xl"></i></button>
+                    </div>
+
+                    <div className="flex-grow flex flex-col items-center justify-center py-10">
+                        <div className="text-6xl sm:text-8xl font-mono font-black text-indigo-600 dark:text-indigo-400 tracking-tight text-center break-all animate-in fade-in zoom-in duration-300">
+                            {currentValue}
+                        </div>
+                    </div>
+
+                    <div className="mt-auto">
+                        <div className="flex flex-wrap justify-center gap-2 mb-10">
+                            {history.map((h, i) => <span key={i} className="px-3 py-1.5 bg-slate-50 dark:bg-slate-800 text-slate-400 font-mono text-xs font-bold rounded-lg border dark:border-slate-700">{h}</span>)}
+                        </div>
+                        <button onClick={next} className="w-full py-8 bg-indigo-600 text-white text-xl font-black rounded-3xl shadow-xl shadow-indigo-500/20 active:scale-95 transition-all">{t.next}</button>
+                    </div>
+
+                    {isLocalSettingsOpen && (
+                        <div className="fixed inset-0 z-[110] bg-black/70 flex items-center justify-center p-4">
+                            <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[3rem] p-8 shadow-2xl overflow-y-auto max-h-[85vh] no-scrollbar">
+                                <h3 className="text-xl font-black mb-8 flex items-center gap-2"><i className="fa-solid fa-cog"></i> {t.gameSettings}</h3>
+                                <div className="space-y-6">
+                                    <section>
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block">{t.digitPairs}</label>
+                                        <div className="grid grid-cols-4 gap-2">
+                                            {[1, 2, 3, 4].map(v => (
+                                                <button key={v} onClick={() => updateSettings('digitPairs', v)} className={`py-3 rounded-2xl border-2 font-bold ${settings.digitPairs === v ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-600 text-indigo-600 dark:text-indigo-400' : 'border-slate-100 dark:border-slate-800'}`}>{v}</button>
+                                            ))}
+                                        </div>
+                                    </section>
+                                    <section>
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block">{t.range}</label>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <button onClick={() => updateSettings('range', 'all')} className={`py-3 rounded-2xl border-2 font-bold ${settings.range === 'all' ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-600 text-indigo-600 dark:text-indigo-400' : 'border-slate-100 dark:border-slate-800'}`}>{t.allRange}</button>
+                                            <select value={settings.range} onChange={(e) => updateSettings('range', e.target.value)} className="py-3 px-4 rounded-2xl border-2 border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-800 font-bold">
+                                                <option value="00">00代</option><option value="10">10代</option><option value="20">20代</option><option value="30">30代</option><option value="40">40代</option><option value="50">50代</option>
+                                            </select>
+                                        </div>
+                                    </section>
+                                    <section>
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block">{t.autoNext}</label>
+                                        <div className="grid grid-cols-4 gap-2">
+                                            {[0, 1, 2, 3, 5].map(v => (
+                                                <button key={v} onClick={() => updateSettings('autoNext', v)} className={`py-3 rounded-2xl border-2 font-bold ${settings.autoNext === v ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-600 text-indigo-600 dark:text-indigo-400' : 'border-slate-100 dark:border-slate-800'}`}>{v === 0 ? t.autoNextOff : v+'秒'}</button>
+                                            ))}
+                                        </div>
+                                    </section>
+                                    <section>
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block">{t.spacing}</label>
+                                        <button onClick={() => updateSettings('spacing', !settings.spacing)} className={`w-full py-4 rounded-2xl border-2 font-bold ${settings.spacing ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-600 text-indigo-600 dark:text-indigo-400' : 'border-slate-100 dark:border-slate-800'}`}>{settings.spacing ? 'ON' : 'OFF'}</button>
+                                    </section>
+                                </div>
+                                <button onClick={() => setIsLocalSettingsOpen(false)} className="w-full mt-10 py-5 bg-slate-900 dark:bg-indigo-600 text-white font-black rounded-3xl transition-all shadow-lg active:scale-95">{t.back}</button>
                             </div>
                         </div>
                     )}
-                    <div className="space-y-2 mb-8">
-                        {laps.map((lap, i) => (
-                            <div key={i} className="bg-white rounded-2xl p-4 border border-slate-100 flex items-center justify-between shadow-sm">
-                                <div className="flex items-center gap-3">
-                                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${lap.correct ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>{lap.questionNumber}</div>
-                                    <div className="flex flex-col"><span className="text-[10px] text-slate-400 font-bold">{lap.date}</span><span className="text-sm font-bold text-slate-700">{lap.userAnswer} {!lap.correct && <span className="text-red-400 ml-1">→ {lap.correctAnswer}</span>}</span></div>
-                                </div>
-                                <i className={`fa-solid ${lap.correct ? 'fa-circle-check text-green-500' : 'fa-circle-xmark text-red-400'}`}></i>
+                </div>
+            );
+        };
+
+        const LetterPairTrainer = ({ onBack, globalSettings, t }) => {
+            const [currentValue, setCurrentValue] = useState('あう');
+            const [isLocalSettingsOpen, setIsLocalSettingsOpen] = useState(false);
+            const gen = () => HIRAGANA_SET[Math.floor(Math.random() * HIRAGANA_SET.length)] + HIRAGANA_SET[Math.floor(Math.random() * HIRAGANA_SET.length)];
+            const next = () => setCurrentValue(gen());
+
+            return (
+                <div className="flex-grow flex flex-col p-6 sm:p-10 transition-colors">
+                    <div className="flex justify-between items-center mb-10">
+                        <button onClick={onBack} className="w-12 h-12 flex items-center justify-center bg-slate-100 dark:bg-slate-800 rounded-2xl text-slate-500 transition-all"><i className="fa-solid fa-home text-xl"></i></button>
+                        <h2 className="text-xl font-black">{t.letter}</h2>
+                        <button onClick={() => setIsLocalSettingsOpen(true)} className="w-12 h-12 flex items-center justify-center bg-slate-100 dark:bg-slate-800 rounded-2xl text-slate-500 transition-all"><i className="fa-solid fa-cog text-xl"></i></button>
+                    </div>
+                    <div className="flex-grow flex flex-col items-center justify-center py-10">
+                        <div className="text-9xl font-black text-emerald-600 dark:text-emerald-400 tracking-[0.2em] text-center animate-in fade-in zoom-in duration-300">
+                            {currentValue}
+                        </div>
+                    </div>
+                    <button onClick={next} className="w-full py-8 bg-emerald-600 text-white text-xl font-black rounded-3xl shadow-xl shadow-emerald-500/20 active:scale-95 transition-all">{t.next}</button>
+
+                    {isLocalSettingsOpen && (
+                        <div className="fixed inset-0 z-[110] bg-black/70 flex items-center justify-center p-4">
+                            <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[3rem] p-8 shadow-2xl">
+                                <h3 className="text-xl font-black mb-8 flex items-center gap-2"><i className="fa-solid fa-cog"></i> {t.gameSettings}</h3>
+                                <p className="text-slate-400 text-sm py-10 text-center">この機能は今後のアップデートで追加されます。</p>
+                                <button onClick={() => setIsLocalSettingsOpen(false)} className="w-full mt-10 py-5 bg-slate-900 dark:bg-emerald-600 text-white font-black rounded-3xl active:scale-95">{t.back}</button>
                             </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const HomeView = ({ onSelectMode, onOpenSettings, t }) => {
+            const modes = [
+                { id: 'calendar', label: t.calendar, icon: 'fa-calendar-days', color: 'bg-indigo-500', desc: t.ja ? '曜日計算を高速化' : 'Speed up day calculation' },
+                { id: 'number', label: t.number, icon: 'fa-hashtag', color: 'bg-emerald-500', desc: t.ja ? '数字の変換トレーニング' : 'Number association training' },
+                { id: 'letterpair', label: t.letter, icon: 'fa-language', color: 'bg-amber-500', desc: t.ja ? '文字をイメージに変換' : 'Letter image training' }
+            ];
+
+            return (
+                <div className="flex-grow flex flex-col p-8 overflow-y-auto no-scrollbar transition-colors">
+                    <div className="flex items-center justify-between mb-12 pt-4">
+                        <div className="flex items-center gap-4">
+                            <div className="w-14 h-14 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-indigo-500/20"><i className="fa-solid fa-brain text-2xl"></i></div>
+                            <div>
+                                <h1 className="text-2xl font-black tracking-tight">{t.appTitle}</h1>
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{t.trainingType}</p>
+                            </div>
+                        </div>
+                        <button onClick={onOpenSettings} className="w-12 h-12 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center text-slate-500 hover:text-indigo-500 transition-all"><i className="fa-solid fa-gear text-xl"></i></button>
+                    </div>
+                    <div className="space-y-5">
+                        {modes.map(m => (
+                            <button key={m.id} onClick={() => onSelectMode(m.id)} className="w-full group bg-white dark:bg-slate-800 p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-2xl hover:border-indigo-100 dark:hover:border-indigo-900 transition-all flex items-center text-left">
+                                <div className={`w-16 h-16 ${m.color} rounded-[1.5rem] flex items-center justify-center text-white shadow-lg mr-6 group-hover:scale-110 transition-transform`}><i className={`fa-solid ${m.icon} text-2xl`}></i></div>
+                                <div className="flex-grow">
+                                    <div className="font-black text-xl mb-1">{m.label}</div>
+                                    <div className="text-[10px] text-slate-400 font-black uppercase tracking-widest">{m.desc}</div>
+                                </div>
+                                <i className="fa-solid fa-chevron-right text-slate-200 group-hover:translate-x-2 transition-transform"></i>
+                            </button>
                         ))}
                     </div>
-                    <div className="mt-auto space-y-3 pb-4">
-                        <button onClick={() => startCountdown(selectedRange)} className="w-full bg-indigo-600 text-white font-bold py-4 rounded-2xl shadow-lg active:scale-95">もう一度</button>
-                        <button onClick={() => setGameState('range_select')} className="w-full bg-white border border-slate-200 text-slate-600 font-bold py-4 rounded-2xl">条件を変える</button>
-                    </div>
                 </div>
             );
         };
-
-        const NumberTrainer = () => {
-            const [currentNumber, setCurrentNumber] = useState('00');
-            const [history, setHistory] = useState([]);
-            const [mappings, setMappings] = useState({});
-
-            useEffect(() => {
-                const saved = localStorage.getItem('memory_pro_numbers');
-                if (saved) setMappings(JSON.parse(saved));
-                setCurrentNumber(Math.floor(Math.random() * 100).toString().padStart(2, '0'));
-            }, []);
-
-            const nextNumber = () => {
-                setHistory(prev => [currentNumber, ...prev].slice(0, 5));
-                setCurrentNumber(Math.floor(Math.random() * 100).toString().padStart(2, '0'));
-            };
-
-            return (
-                <div className="flex-grow flex flex-col p-6 sm:p-8">
-                    <div className="text-center mb-4"><h2 className="text-xl font-bold text-slate-800">ナンバー記憶</h2><p className="text-xs text-slate-400 font-medium">00 〜 99</p></div>
-                    <div className="flex-grow flex flex-col items-center justify-center">
-                        <div className="text-center">
-                            <div className="text-9xl font-bold text-indigo-600 font-mono tracking-tighter mb-4">{currentNumber}</div>
-                            <div className="text-2xl font-bold text-slate-400">{mappings[currentNumber] || ''}</div>
-                        </div>
-                    </div>
-                    <div className="mt-auto">
-                        <div className="flex flex-wrap justify-center gap-2 mb-8">
-                            {history.map((num, i) => <span key={i} className="text-xs font-mono font-bold text-slate-400 bg-slate-50 px-2 py-1 rounded-md border">{num}</span>)}
-                        </div>
-                        <button onClick={nextNumber} className="w-full bg-indigo-600 text-white text-lg font-bold py-6 rounded-2xl shadow-xl active:scale-95">次へ</button>
-                    </div>
-                </div>
-            );
-        };
-
-        const LetterPairTrainer = () => {
-            const [currentPair, setCurrentPair] = useState('あう');
-            const [history, setHistory] = useState([]);
-            const [mappings, setMappings] = useState({});
-
-            const generate = () => HIRAGANA_SET[Math.floor(Math.random() * HIRAGANA_SET.length)] + HIRAGANA_SET[Math.floor(Math.random() * HIRAGANA_SET.length)];
-
-            useEffect(() => {
-                const saved = localStorage.getItem('memory_pro_letters');
-                if (saved) setMappings(JSON.parse(saved));
-                setCurrentPair(generate());
-            }, []);
-
-            const nextPair = () => {
-                setHistory(prev => [currentPair, ...prev].slice(0, 5));
-                setCurrentPair(generate());
-            };
-
-            return (
-                <div className="flex-grow flex flex-col p-6 sm:p-8">
-                    <div className="text-center mb-4"><h2 className="text-xl font-bold text-slate-800">レターペア</h2><p className="text-xs text-slate-400 font-medium">ひらがな二文字</p></div>
-                    <div className="flex-grow flex flex-col items-center justify-center">
-                        <div className="text-center">
-                            <div className="text-9xl font-bold text-emerald-600 tracking-widest mb-4">{currentPair}</div>
-                            <div className="text-2xl font-bold text-slate-400">{mappings[currentPair] || ''}</div>
-                        </div>
-                    </div>
-                    <div className="mt-auto">
-                        <div className="flex flex-wrap justify-center gap-2 mb-8">
-                            {history.map((pair, i) => <span key={i} className="text-sm font-bold text-slate-400 bg-slate-50 px-2 py-1 rounded-md border">{pair}</span>)}
-                        </div>
-                        <button onClick={nextPair} className="w-full bg-emerald-600 text-white text-lg font-bold py-6 rounded-2xl shadow-xl active:scale-95">次へ</button>
-                    </div>
-                </div>
-            );
-        };
-
-        // --- Entry Point Component ---
 
         const App = () => {
-            const [mode, setMode] = useState('calendar');
-            const [isMasterOpen, setIsMasterOpen] = useState(false);
-            const [isCalendarSettingsOpen, setIsCalendarSettingsOpen] = useState(false);
-            const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+            const [mode, setMode] = useState('home');
+            const [isGlobalSettingsOpen, setIsGlobalSettingsOpen] = useState(false);
+            const [globalSettings, setGlobalSettings] = useState(() => {
+                const saved = localStorage.getItem('global_settings');
+                return saved ? JSON.parse(saved) : { lang: 'ja', theme: 'light' };
+            });
+
+            useEffect(() => {
+                localStorage.setItem('global_settings', JSON.stringify(globalSettings));
+                document.documentElement.classList.toggle('dark', globalSettings.theme === 'dark');
+            }, [globalSettings]);
+
+            const t = translations[globalSettings.lang];
 
             return (
-                <div className="min-h-screen bg-slate-50 flex flex-col pb-20">
-                    <header className="bg-white border-b border-slate-200 py-3 px-4 flex items-center justify-between sticky top-0 z-40">
-                        <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white shadow-sm"><i className="fa-solid fa-brain"></i></div>
-                            <h1 className="font-bold text-slate-800 tracking-tight text-sm sm:text-base">MemoryPro</h1>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                            {mode === 'calendar' && (
-                                <>
-                                    <button onClick={() => setIsHistoryOpen(true)} className="flex items-center justify-center bg-slate-100 w-8 h-8 rounded-full text-slate-600 hover:bg-slate-200 transition-colors"><i className="fa-solid fa-clock-rotate-left text-xs"></i></button>
-                                    <button onClick={() => setIsCalendarSettingsOpen(true)} className="flex items-center gap-1.5 bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-full text-xs font-bold transition-colors hover:bg-indigo-100"><i className="fa-solid fa-sliders"></i><span>設定</span></button>
-                                </>
-                            )}
-                            {(mode === 'number' || mode === 'letterpair') && (
-                                <button onClick={() => setIsMasterOpen(true)} className="flex items-center gap-1.5 bg-slate-100 text-slate-600 px-3 py-1.5 rounded-full text-xs font-bold hover:bg-slate-200 transition-colors"><i className="fa-solid fa-gear"></i><span>マスター</span></button>
-                            )}
-                        </div>
-                    </header>
-
-                    <main className="flex-grow container mx-auto px-4 py-4 max-w-2xl flex flex-col">
-                        <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden flex-grow flex flex-col relative">
-                            {mode === 'calendar' ? <CalendarTrainer isSettingsOpen={isCalendarSettingsOpen} setIsSettingsOpen={setIsCalendarSettingsOpen} isHistoryOpen={isHistoryOpen} setIsHistoryOpen={setIsHistoryOpen} /> 
-                             : mode === 'number' ? <NumberTrainer /> 
-                             : <LetterPairTrainer />}
+                <div className={`min-h-screen flex flex-col transition-colors duration-300 ${globalSettings.theme === 'dark' ? 'dark' : ''}`}>
+                    <main className="flex-grow container mx-auto px-4 py-6 sm:py-12 max-w-xl flex flex-col">
+                        <div className="main-card bg-white dark:bg-slate-900 rounded-[3.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden flex-grow flex flex-col relative transition-all duration-300">
+                            {mode === 'home' && <HomeView t={t} onSelectMode={setMode} onOpenSettings={() => setIsGlobalSettingsOpen(true)} />}
+                            {mode === 'calendar' && <CalendarTrainer t={t} globalSettings={globalSettings} onBack={() => setMode('home')} />}
+                            {mode === 'number' && <NumberTrainer t={t} globalSettings={globalSettings} onBack={() => setMode('home')} />}
+                            {mode === 'letterpair' && <LetterPairTrainer t={t} globalSettings={globalSettings} onBack={() => setMode('home')} />}
                         </div>
                     </main>
-
-                    {isMasterOpen && (mode === 'number' || mode === 'letterpair') && (
-                        <MasterEditor mode={mode} onClose={() => setIsMasterOpen(false)} />
-                    )}
-
-                    <BottomNav currentMode={mode} setMode={setMode} />
+                    {isGlobalSettingsOpen && <GlobalSettingsModal globalSettings={globalSettings} setGlobalSettings={setGlobalSettings} onClose={() => setIsGlobalSettingsOpen(false)} t={t} />}
                 </div>
             );
         };
