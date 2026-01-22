@@ -58,6 +58,7 @@
     <script type="text/babel" data-type="module">
         import React, { useState, useEffect, useCallback, useRef, useMemo } from 'https://esm.sh/react@18.2.0';
         import ReactDOM from 'https://esm.sh/react-dom@18.2.0/client';
+        import confetti from 'https://esm.sh/canvas-confetti@1.6.0';
 
         // --- Constants & Utilities ---
         const DAYS_JP = ['日', '月', '火', '水', '木', '金', '土'];
@@ -114,7 +115,7 @@
                 result: '結果発表',
                 rawTime: 'タイム',
                 penalty: 'ペナルティ',
-                avgTime: '平均タイム(罰なし)',
+                avgTime: '平均タイム',
                 finalScore: 'スコア',
                 retry: 'もう一度',
                 changeRange: '設定変更',
@@ -139,7 +140,15 @@
                 recent: '最近',
                 birthday: '誕生日',
                 competition: '競技',
-                restart: 'やり直す'
+                restart: 'やり直す',
+                register: '記録を登録',
+                registered: '登録済み',
+                bestScore: '自己ベスト',
+                newRecord: '自己ベスト更新！',
+                graph: '推移グラフ',
+                confirmDiscard: '記録が登録されていません。破棄してもよろしいですか？',
+                noData: '登録されたデータがありません',
+                sec: '秒'
             },
             en: {
                 appTitle: 'MemoryPro',
@@ -164,7 +173,7 @@
                 result: 'Results',
                 rawTime: 'Time',
                 penalty: 'Penalty',
-                avgTime: 'Avg Time (Raw)',
+                avgTime: 'Avg Time',
                 finalScore: 'Score',
                 retry: 'Retry',
                 changeRange: 'Settings',
@@ -189,7 +198,15 @@
                 recent: 'Recent',
                 birthday: 'Birthday',
                 competition: 'Pro',
-                restart: 'Restart'
+                restart: 'Restart',
+                register: 'Register',
+                registered: 'Registered',
+                bestScore: 'Personal Best',
+                newRecord: 'New Record!',
+                graph: 'Trends',
+                confirmDiscard: 'Record not registered. Discard?',
+                noData: 'No Registered Data',
+                sec: 's'
             }
         };
 
@@ -200,6 +217,7 @@
             const handleExport = () => {
                 const data = {
                     calendar_history: localStorage.getItem('calendar_history'),
+                    calendar_records: localStorage.getItem('calendar_records'), // Added explicit records
                     memory_pro_numbers: localStorage.getItem('memory_pro_numbers'),
                     memory_pro_letters: localStorage.getItem('memory_pro_letters'),
                     calendar_settings: localStorage.getItem('calendar_settings'),
@@ -221,6 +239,7 @@
                     try {
                         const data = JSON.parse(event.target.result);
                         if (data.calendar_history) localStorage.setItem('calendar_history', data.calendar_history);
+                        if (data.calendar_records) localStorage.setItem('calendar_records', data.calendar_records);
                         if (data.memory_pro_numbers) localStorage.setItem('memory_pro_numbers', data.memory_pro_numbers);
                         if (data.memory_pro_letters) localStorage.setItem('memory_pro_letters', data.memory_pro_letters);
                         if (data.calendar_settings) localStorage.setItem('calendar_settings', data.calendar_settings);
@@ -266,9 +285,80 @@
             );
         };
 
+        const TrendGraph = ({ records, timerFormat, t }) => {
+            if (!records || records.length === 0) return <div className="text-center text-slate-400 py-10 text-sm font-bold bg-slate-50 rounded-xl">{t.noData}</div>;
+
+            // Sort records by timestamp (Oldest to Newest)
+            const sortedRecords = [...records].sort((a, b) => a.timestamp - b.timestamp);
+            const scores = sortedRecords.map(r => r.finalScore);
+            
+            const min = Math.min(...scores);
+            const max = Math.max(...scores);
+            const range = max - min || 1;
+            
+            const width = 300;
+            const height = 180;
+            const padding = 30;
+
+            const points = scores.map((s, i) => {
+                const x = padding + (i / (scores.length - 1 || 1)) * (width - padding * 2);
+                // Lower score is better, so min score should be at top (y=padding)
+                // Normalize: 0 = best(min), 1 = worst(max)
+                const normalized = (s - min) / range; 
+                // We want min at top, max at bottom.
+                // y = padding + normalized * (height - padding*2)
+                const y = padding + normalized * (height - padding * 2);
+                return `${x},${y}`;
+            }).join(' ');
+
+            return (
+                <div className="w-full flex flex-col items-center">
+                    <svg width="100%" viewBox={`0 0 ${width} ${height}`} className="overflow-visible font-mono text-[8px] text-slate-400">
+                        {/* Grid lines and Labels */}
+                        <line x1={padding} y1={padding} x2={width-padding} y2={padding} stroke="#f1f5f9" strokeWidth="1" />
+                        <text x={padding - 5} y={padding + 3} textAnchor="end">{formatTime(min, timerFormat)}</text>
+                        
+                        <line x1={padding} y1={height-padding} x2={width-padding} y2={height-padding} stroke="#f1f5f9" strokeWidth="1" />
+                        <text x={padding - 5} y={height - padding + 3} textAnchor="end">{formatTime(max, timerFormat)}</text>
+                        
+                        {/* Axis */}
+                        <line x1={padding} y1={padding} x2={padding} y2={height-padding} stroke="#e2e8f0" strokeWidth="1" />
+                        <line x1={padding} y1={height-padding} x2={width-padding} y2={height-padding} stroke="#e2e8f0" strokeWidth="1" />
+
+                        {/* Polyline */}
+                        <polyline fill="none" stroke="#6366f1" strokeWidth="2" points={points} strokeLinejoin="round" />
+                        
+                        {/* Dots and Dates */}
+                        {sortedRecords.map((r, i) => {
+                             const s = r.finalScore;
+                             const normalized = (s - min) / range;
+                             const x = padding + (i / (scores.length - 1 || 1)) * (width - padding * 2);
+                             const y = padding + normalized * (height - padding * 2);
+                             const date = new Date(r.timestamp);
+                             const dateStr = `${date.getMonth()+1}/${date.getDate()}`;
+                             
+                             return (
+                                <g key={i}>
+                                    <circle cx={x} cy={y} r="3" fill="#4f46e5" stroke="white" strokeWidth="1" />
+                                    {/* Show date for first, last, and maybe some in between if sparse */}
+                                    {(i === 0 || i === sortedRecords.length - 1 || (sortedRecords.length < 10)) && (
+                                        <text x={x} y={height - padding + 15} textAnchor="middle">{dateStr}</text>
+                                    )}
+                                </g>
+                             );
+                        })}
+                    </svg>
+                    <div className="mt-4 text-xs font-bold text-slate-500 bg-slate-50 px-4 py-2 rounded-lg">
+                        Total Records: {records.length}
+                    </div>
+                </div>
+            );
+        };
+
         const CalendarTrainer = ({ onBack, globalSettings, t }) => {
             const [gameState, setGameState] = useState('idle');
             const [isLocalSettingsOpen, setIsLocalSettingsOpen] = useState(false);
+            const [isGraphOpen, setIsGraphOpen] = useState(false);
             const [selectedRange, setSelectedRange] = useState('recent');
             const [activeQuestion, setActiveQuestion] = useState(0);
             const [questions, setQuestions] = useState([]);
@@ -279,9 +369,11 @@
             const [countdownText, setCountdownText] = useState('');
             const [settings, setSettings] = useState(() => {
                 const saved = localStorage.getItem('calendar_settings');
-                // Default yearMode to western, showNumbers to true
                 return saved ? JSON.parse(saved) : { yearMode: 'western', countdownSeconds: 3, showNumbers: true, startDay: 0, timerFormat: 'mm:ss' };
             });
+            const [currentSessionId, setCurrentSessionId] = useState(null);
+            const [isRegistered, setIsRegistered] = useState(false);
+            const [currentResult, setCurrentResult] = useState(null);
 
             const timerRef = useRef(null);
 
@@ -298,6 +390,21 @@
                 return () => { if (timerRef.current) cancelAnimationFrame(timerRef.current); };
             }, [gameState, updateTimer]);
 
+            // Top-level effect for confetti celebration
+            useEffect(() => {
+                if (gameState === 'finished' && currentResult && !isRegistered) {
+                    const records = JSON.parse(localStorage.getItem('calendar_records') || '[]');
+                    const filtered = records.filter(r => r.range === selectedRange);
+                    
+                    if (filtered.length > 0) {
+                        const best = Math.min(...filtered.map(r => r.finalScore));
+                        if (currentResult.finalScore <= best) {
+                            confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+                        }
+                    }
+                }
+            }, [gameState, isRegistered, selectedRange, currentResult]);
+
             const generateRandomDate = (range) => {
                 let startYear, endYear;
                 const now = new Date();
@@ -312,6 +419,9 @@
 
             const startCountdown = (range) => {
                 setSelectedRange(range); setLaps([]); setFeedback(null); setGameState('countdown');
+                setIsRegistered(false);
+                setCurrentResult(null);
+                setCurrentSessionId(generateId());
                 setQuestions(Array.from({ length: 5 }, () => generateRandomDate(range)));
                 let count = settings.countdownSeconds;
                 setCountdownText(count.toString());
@@ -347,22 +457,65 @@
                     setFeedback(null);
                     if (activeQuestion < 4) setActiveQuestion(prev => prev + 1);
                     else {
-                        setGameState('finished');
                         const finalTime = now - startTime;
                         const mistakes = [...laps, record].filter(l => !l.correct).length;
-                        const session = { id: generateId(), timestamp: Date.now(), range: selectedRange, totalTime: finalTime, penaltySeconds: mistakes * 30, finalScore: finalTime + (mistakes * 30000), laps: [...laps, record], settings };
+                        const session = { 
+                            id: currentSessionId, 
+                            timestamp: Date.now(), 
+                            range: selectedRange, 
+                            totalTime: finalTime, 
+                            penaltySeconds: mistakes * 30, 
+                            finalScore: finalTime + (mistakes * 30000), 
+                            laps: [...laps, record], 
+                            settings 
+                        };
+                        
+                        // Save to history (latest first)
                         const history = JSON.parse(localStorage.getItem('calendar_history') || '[]');
                         history.unshift(session);
                         localStorage.setItem('calendar_history', JSON.stringify(history.slice(0, 100)));
+                        
+                        // Update state
+                        setCurrentResult(session);
+                        setGameState('finished');
                     }
                 }, 300);
+            };
+
+            const handleRegister = (session) => {
+                if (isRegistered) return;
+                const records = JSON.parse(localStorage.getItem('calendar_records') || '[]');
+                records.push(session);
+                localStorage.setItem('calendar_records', JSON.stringify(records));
+                setIsRegistered(true);
+            };
+
+            const getBestScore = () => {
+                const records = JSON.parse(localStorage.getItem('calendar_records') || '[]');
+                const filtered = records.filter(r => r.range === selectedRange);
+                if (filtered.length === 0) return null;
+                return Math.min(...filtered.map(r => r.finalScore));
+            };
+
+            const getRegisteredRecords = () => {
+                const records = JSON.parse(localStorage.getItem('calendar_records') || '[]');
+                return records.filter(r => r.range === selectedRange);
+            };
+
+            const handleRetryCheck = (action) => {
+                if (!isRegistered && gameState === 'finished') {
+                    if (window.confirm(t.confirmDiscard)) {
+                        action();
+                    }
+                } else {
+                    action();
+                }
             };
 
             const formatDate = (date) => {
                 const y = date.getFullYear(), m = date.getMonth() + 1, d = date.getDate(), era = getJapaneseEra(date);
                 if (settings.yearMode === 'japanese') return `${era} ${m}月${d}日`;
                 if (settings.yearMode === 'both') return `${y}年 (${era}) ${m}月${d}日`;
-                // Default Western
                 return `${y}年 ${m}月${d}日`;
             };
 
@@ -411,7 +564,7 @@
                                             <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">{t.countdown}</label>
                                             <div className="grid grid-cols-3 gap-2">
                                                 {[3, 5, 10].map(s => (
-                                                    <button key={s} onClick={() => updateLocalSettings('countdownSeconds', s)} className={`py-2.5 rounded-xl border-2 font-bold text-sm ${settings.countdownSeconds === s ? 'bg-indigo-50 border-indigo-600 text-indigo-600' : 'border-slate-100'}`}>{s}s</button>
+                                                    <button key={s} onClick={() => updateLocalSettings('countdownSeconds', s)} className={`py-2.5 rounded-xl border-2 font-bold text-sm ${settings.countdownSeconds === s ? 'bg-indigo-50 border-indigo-600 text-indigo-600' : 'border-slate-100'}`}>{s}{t.sec}</button>
                                                 ))}
                                             </div>
                                         </section>
@@ -448,19 +601,25 @@
 
             if (gameState === 'playing') {
                 return (
-                    <div className="h-full flex flex-col p-4 pb-8 overflow-hidden">
-                        <div className="flex justify-between items-start mb-2">
+                    <div className="h-full flex flex-col p-4 overflow-hidden">
+                        <div className="flex justify-between items-start mb-2 flex-none">
                             <button onClick={() => setGameState('idle')} className="text-slate-400 hover:text-slate-600 py-2"><i className="fa-solid fa-arrow-left"></i></button>
                             <div className="flex flex-col items-center">
                                 <span className="text-5xl font-mono font-black text-slate-800">{formatTime(currentTime - startTime, settings.timerFormat)}</span>
                             </div>
-                            <button onClick={() => startCountdown(selectedRange)} className="text-slate-400 hover:text-slate-600 py-2"><i className="fa-solid fa-rotate-right"></i></button>
+                            <button onClick={() => startCountdown(selectedRange)} className="text-slate-400 hover:text-slate-600 py-2 text-sm font-bold flex flex-col items-center gap-1"><i className="fa-solid fa-rotate-right"></i> {t.restart}</button>
                         </div>
-                        <div className="text-center mb-4">
+                        <div className="text-center mb-4 flex-none">
                             <span className="text-xs font-bold text-indigo-600 uppercase tracking-widest">{activeQuestion + 1} / 5</span>
                         </div>
                         
-                        <div className="flex-grow space-y-2 overflow-y-auto no-scrollbar py-2">
+                        {/* 
+                            Questions container: 
+                            Limit height to ~45% of screen to keep buttons up. 
+                            Use flex-col-reverse or justify-end logic if we want latest at bottom? 
+                            Standard top-down is fine, but we ensure it doesn't push buttons to very bottom.
+                        */}
+                        <div className="space-y-2 overflow-y-auto no-scrollbar py-2 h-[45vh] flex-none">
                             {questions.map((q, idx) => {
                                 const isAnswered = idx < laps.length;
                                 const isActive = idx === activeQuestion;
@@ -478,38 +637,65 @@
                             })}
                         </div>
 
-                        <div className="mt-4 grid grid-cols-7 gap-1 mb-6">
-                            {dayList.map(({ label, index }) => (
-                                <button key={label} onClick={() => handleAnswer(index)} className={`py-5 flex flex-col items-center justify-center gap-1 rounded-xl shadow-sm border active:scale-95 ${index === 0 ? 'text-red-500 bg-red-50 border-red-100' : index === 6 ? 'text-blue-500 bg-blue-50 border-blue-100' : 'bg-white border-slate-200 text-slate-700'}`}>
-                                    <span className="font-bold text-base">{label}</span>
-                                    {settings.showNumbers && <span className="text-[10px] font-black opacity-40">{index}</span>}
-                                </button>
-                            ))}
+                        {/* Buttons container - fills remaining space but justifies start/center to sit higher */}
+                        <div className="flex-grow flex items-start justify-center pt-4">
+                            <div className="grid grid-cols-7 gap-1 w-full">
+                                {dayList.map(({ label, index }) => (
+                                    <button key={label} onClick={() => handleAnswer(index)} className={`aspect-[3/4] flex flex-col items-center justify-center gap-1 rounded-xl shadow-sm border active:scale-95 transition-transform ${index === 0 ? 'text-red-500 bg-red-50 border-red-100' : index === 6 ? 'text-blue-500 bg-blue-50 border-blue-100' : 'bg-white border-slate-200 text-slate-700'}`}>
+                                        <span className="font-bold text-lg sm:text-xl">{label}</span>
+                                        {settings.showNumbers && <span className="text-[10px] font-black opacity-40">{index}</span>}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                     </div>
                 );
             }
 
             if (gameState === 'finished') {
-                const latest = JSON.parse(localStorage.getItem('calendar_history') || '[]')[0];
-                const avg = latest.totalTime / 5;
+                if (!currentResult) return null; // Should not happen given logic, but safety check
+
+                const avg = currentResult.totalTime / 5;
+                const best = getBestScore();
+                const isNewRecord = best !== null && currentResult.finalScore <= best;
+
                 return (
                     <div className="h-full flex flex-col p-6 overflow-y-auto no-scrollbar">
-                        <h2 className="text-xl font-bold mb-6 flex items-center gap-2"><i className="fa-solid fa-trophy text-amber-500"></i> {t.result}</h2>
-                        <div className="bg-indigo-600 text-white rounded-[2rem] p-8 mb-6 shadow-xl">
-                            <div className="text-xs font-bold opacity-70 uppercase mb-1">{t.finalScore}</div>
-                            <div className="text-4xl font-mono font-black mb-6">{formatTime(latest.finalScore, settings.timerFormat)}</div>
-                            <div className="grid grid-cols-2 gap-4 pt-6 border-t border-white/20">
-                                <div><span className="text-[10px] font-bold opacity-70 uppercase block mb-1">{t.rawTime}</span><span className="font-bold">{formatTime(latest.totalTime, settings.timerFormat)}</span></div>
-                                <div><span className="text-[10px] font-bold opacity-70 uppercase block mb-1">{t.penalty}</span><span className="font-bold">+{latest.penaltySeconds}s</span></div>
+                        <div className="flex justify-between items-center mb-4">
+                            <h2 className="text-xl font-bold flex items-center gap-2"><i className="fa-solid fa-trophy text-amber-500"></i> {t.result}</h2>
+                            <button onClick={() => setIsGraphOpen(true)} className="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-2 rounded-lg"><i className="fa-solid fa-chart-line"></i> {t.graph}</button>
+                        </div>
+
+                        <div className="bg-indigo-600 text-white rounded-[2rem] p-6 mb-6 shadow-xl relative overflow-hidden">
+                            {isNewRecord && <div className="absolute top-0 right-0 bg-yellow-400 text-yellow-900 text-[10px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-widest">{t.newRecord}</div>}
+                            
+                            <div className="mb-6">
+                                <div className="text-xs font-bold opacity-70 uppercase mb-1">{t.finalScore}</div>
+                                <div className="flex items-center justify-between">
+                                    <div className="text-4xl font-mono font-black">{formatTime(currentResult.finalScore, settings.timerFormat)}</div>
+                                    <button onClick={() => handleRegister(currentResult)} disabled={isRegistered} className={`px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${isRegistered ? 'bg-white/20 text-white/50' : 'bg-white text-indigo-600 hover:scale-105 shadow-md'}`}>
+                                        {isRegistered ? <><i className="fa-solid fa-check"></i> {t.registered}</> : <><i className="fa-solid fa-save"></i> {t.register}</>}
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/20">
+                                <div><span className="text-[10px] font-bold opacity-70 uppercase block mb-1">{t.rawTime}</span><span className="font-bold">{formatTime(currentResult.totalTime, settings.timerFormat)}</span></div>
+                                <div><span className="text-[10px] font-bold opacity-70 uppercase block mb-1">{t.penalty}</span><span className="font-bold">+{currentResult.penaltySeconds}s</span></div>
+                            </div>
+                            <div className="mt-4 pt-4 border-t border-white/20 flex justify-between items-center">
+                                <span className="text-[10px] font-bold opacity-70 uppercase">{t.bestScore}</span>
+                                <span className="font-mono font-bold text-lg">{best ? formatTime(best, settings.timerFormat) : '-'}</span>
                             </div>
                         </div>
+
                         <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm mb-6 flex justify-between items-center">
                              <span className="text-xs font-bold text-slate-400 uppercase">{t.avgTime}</span>
                              <span className="font-mono font-black text-lg text-slate-700">{formatTime(avg, 'ss')}</span>
                         </div>
+                        
                         <div className="space-y-2 mb-8">
-                            {latest.laps.map((lap, i) => (
+                            {currentResult.laps.map((lap, i) => (
                                 <div key={i} className="bg-white rounded-2xl p-4 border border-slate-100 flex items-center justify-between shadow-sm">
                                     <div className="flex items-center gap-3">
                                         <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] ${lap.correct ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>{i + 1}</div>
@@ -520,9 +706,22 @@
                             ))}
                         </div>
                         <div className="mt-auto space-y-3">
-                            <button onClick={() => startCountdown(selectedRange)} className="w-full py-4 bg-indigo-600 text-white font-bold rounded-2xl shadow-lg active:scale-95">{t.retry}</button>
-                            <button onClick={() => setGameState('idle')} className="w-full py-4 bg-white border border-slate-200 text-slate-600 font-bold rounded-2xl active:scale-95">{t.changeRange}</button>
+                            <button onClick={() => handleRetryCheck(() => startCountdown(selectedRange))} className="w-full py-4 bg-indigo-600 text-white font-bold rounded-2xl shadow-lg active:scale-95">{t.retry}</button>
+                            <button onClick={() => handleRetryCheck(() => setGameState('idle'))} className="w-full py-4 bg-white border border-slate-200 text-slate-600 font-bold rounded-2xl active:scale-95">{t.changeRange}</button>
                         </div>
+
+                        {isGraphOpen && (
+                            <div className="fixed inset-0 z-[120] bg-black/60 flex items-center justify-center p-4">
+                                <div className="bg-white w-full max-w-sm rounded-[2rem] p-6 shadow-2xl">
+                                    <div className="flex justify-between items-center mb-6">
+                                        <h3 className="text-lg font-bold flex items-center gap-2"><i className="fa-solid fa-chart-line text-indigo-500"></i> {t.graph} <span className="text-xs bg-slate-100 px-2 py-1 rounded text-slate-500">{t[selectedRange] || selectedRange}</span></h3>
+                                        <button onClick={() => setIsGraphOpen(false)} className="w-8 h-8 flex items-center justify-center bg-slate-100 rounded-full text-slate-500"><i className="fa-solid fa-xmark"></i></button>
+                                    </div>
+                                    <TrendGraph records={getRegisteredRecords()} timerFormat={settings.timerFormat} t={t} />
+                                    <button onClick={() => setIsGraphOpen(false)} className="w-full mt-6 py-3 bg-slate-900 text-white font-bold rounded-xl">{t.back}</button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 );
             }
