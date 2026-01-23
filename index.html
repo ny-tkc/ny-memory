@@ -102,7 +102,7 @@
                 lang: '表示言語',
                 timerFormat: 'タイマー表示',
                 minSec: '分:秒',
-                onlySec: '秒のみ',
+                onlySec: '秒',
                 backup: 'データ管理',
                 export: 'バックアップ作成 (保存)',
                 import: 'データの復元 (読み込み)',
@@ -112,7 +112,7 @@
                 penaltyText: 'ミス1問につき30秒加算',
                 start: 'スタート',
                 back: '戻る',
-                result: '結果発表',
+                result: '結果確認',
                 rawTime: 'タイム',
                 penalty: 'ペナルティ',
                 avgTime: '平均タイム',
@@ -143,12 +143,14 @@
                 restart: 'やり直す',
                 register: '記録を登録',
                 registered: '登録済み',
-                bestScore: '自己ベスト',
+                bestScore: '最高記録',
                 newRecord: '自己ベスト更新！',
                 graph: '推移グラフ',
                 confirmDiscard: '記録が登録されていません。破棄してもよろしいですか？',
-                noData: '登録されたデータがありません',
-                sec: '秒'
+                confirmQuit: '進行中のデータは破棄されます。よろしいですか？',
+                noData: 'データがありません',
+                sec: '秒',
+                lap: 'ラップ'
             },
             en: {
                 appTitle: 'MemoryPro',
@@ -160,7 +162,7 @@
                 lang: 'Language',
                 timerFormat: 'Timer Format',
                 minSec: 'MM:SS',
-                onlySec: 'Seconds',
+                onlySec: 'Sec',
                 backup: 'Data Backup',
                 export: 'Export Backup',
                 import: 'Import Data',
@@ -170,25 +172,25 @@
                 penaltyText: '30s penalty per mistake',
                 start: 'Start',
                 back: 'Back',
-                result: 'Results',
+                result: 'Review',
                 rawTime: 'Time',
                 penalty: 'Penalty',
-                avgTime: 'Avg Time',
+                avgTime: 'Avg',
                 finalScore: 'Score',
                 retry: 'Retry',
                 changeRange: 'Settings',
                 gameSettings: 'Settings',
                 countdown: 'Countdown',
-                showNums: 'Button Index',
+                showNums: 'Index',
                 digitPairs: 'Digits',
-                autoNext: 'Auto Next',
+                autoNext: 'Auto',
                 autoNextOff: 'Off',
                 spacing: 'Spacing',
                 range: 'Range',
                 allRange: 'All',
                 yearMode: 'Year Style',
                 western: 'Western',
-                era: 'Japanese',
+                era: 'Era',
                 both: 'Both',
                 next: 'Next',
                 trainingType: 'Memory Training',
@@ -201,94 +203,22 @@
                 restart: 'Restart',
                 register: 'Register',
                 registered: 'Registered',
-                bestScore: 'Personal Best',
-                newRecord: 'New Record!',
-                graph: 'Trends',
-                confirmDiscard: 'Record not registered. Discard?',
-                noData: 'No Registered Data',
-                sec: 's'
+                bestScore: 'Best',
+                newRecord: 'New Best!',
+                graph: 'Graph',
+                confirmDiscard: 'Discard record?',
+                confirmQuit: 'Data will be lost. Quit?',
+                noData: 'No Data',
+                sec: 's',
+                lap: 'Lap'
             }
         };
 
         // --- Components ---
 
-        const GlobalSettingsModal = ({ globalSettings, setGlobalSettings, onClose, t }) => {
-            const handleReset = () => { if (window.confirm(t.resetConfirm)) { localStorage.clear(); window.location.reload(); } };
-            const handleExport = () => {
-                const data = {
-                    calendar_history: localStorage.getItem('calendar_history'),
-                    calendar_records: localStorage.getItem('calendar_records'), // Added explicit records
-                    memory_pro_numbers: localStorage.getItem('memory_pro_numbers'),
-                    memory_pro_letters: localStorage.getItem('memory_pro_letters'),
-                    calendar_settings: localStorage.getItem('calendar_settings'),
-                    number_settings: localStorage.getItem('number_settings'),
-                    global_settings: JSON.stringify(globalSettings)
-                };
-                const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `memorypro_backup_${new Date().toISOString().split('T')[0]}.json`;
-                a.click();
-            };
-            const handleImport = (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    try {
-                        const data = JSON.parse(event.target.result);
-                        if (data.calendar_history) localStorage.setItem('calendar_history', data.calendar_history);
-                        if (data.calendar_records) localStorage.setItem('calendar_records', data.calendar_records);
-                        if (data.memory_pro_numbers) localStorage.setItem('memory_pro_numbers', data.memory_pro_numbers);
-                        if (data.memory_pro_letters) localStorage.setItem('memory_pro_letters', data.memory_pro_letters);
-                        if (data.calendar_settings) localStorage.setItem('calendar_settings', data.calendar_settings);
-                        if (data.number_settings) localStorage.setItem('number_settings', data.number_settings);
-                        if (data.global_settings) setGlobalSettings(JSON.parse(data.global_settings));
-                        alert('インポート完了。'); window.location.reload();
-                    } catch (err) { alert('不正なファイル形式です。'); }
-                };
-                reader.readAsText(file);
-            };
-
-            return (
-                <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center">
-                    <div className="bg-white w-full max-w-lg rounded-t-[2rem] sm:rounded-[2rem] shadow-2xl p-6 overflow-y-auto max-h-[85vh] no-scrollbar">
-                        <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-xl font-bold flex items-center gap-2">
-                                <i className="fa-solid fa-sliders text-indigo-600"></i> {t.settings}
-                            </h2>
-                            <button onClick={onClose} className="w-8 h-8 flex items-center justify-center bg-slate-100 rounded-full text-slate-500"><i className="fa-solid fa-xmark"></i></button>
-                        </div>
-                        <div className="space-y-6">
-                            <section>
-                                <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">{t.lang}</label>
-                                <div className="grid grid-cols-2 gap-2">
-                                    {['ja', 'en'].map(l => (
-                                        <button key={l} onClick={() => setGlobalSettings(s => ({...s, lang: l}))} className={`py-3 rounded-xl border-2 font-bold text-sm ${globalSettings.lang === l ? 'bg-indigo-50 border-indigo-600 text-indigo-600' : 'border-slate-100 text-slate-400'}`}>
-                                            {l === 'ja' ? '日本語' : 'English'}
-                                        </button>
-                                    ))}
-                                </div>
-                            </section>
-                            <section>
-                                <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">{t.backup}</label>
-                                <div className="space-y-2">
-                                    <button onClick={handleExport} className="w-full py-4 bg-slate-50 hover:bg-slate-100 rounded-xl font-bold text-sm flex items-center justify-center gap-2"><i className="fa-solid fa-download"></i> {t.export}</button>
-                                    <label className="w-full py-4 bg-slate-50 hover:bg-slate-100 rounded-xl font-bold text-sm flex items-center justify-center gap-2 cursor-pointer"><i className="fa-solid fa-upload"></i> {t.import}<input type="file" accept=".json" onChange={handleImport} className="hidden" /></label>
-                                    <button onClick={handleReset} className="w-full py-4 bg-red-50 text-red-500 rounded-xl font-bold text-sm border border-red-100 flex items-center justify-center gap-2">{t.reset}</button>
-                                </div>
-                            </section>
-                        </div>
-                    </div>
-                </div>
-            );
-        };
-
         const TrendGraph = ({ records, timerFormat, t }) => {
             if (!records || records.length === 0) return <div className="text-center text-slate-400 py-10 text-sm font-bold bg-slate-50 rounded-xl">{t.noData}</div>;
 
-            // Sort records by timestamp (Oldest to Newest)
             const sortedRecords = [...records].sort((a, b) => a.timestamp - b.timestamp);
             const scores = sortedRecords.map(r => r.finalScore);
             
@@ -302,11 +232,7 @@
 
             const points = scores.map((s, i) => {
                 const x = padding + (i / (scores.length - 1 || 1)) * (width - padding * 2);
-                // Lower score is better, so min score should be at top (y=padding)
-                // Normalize: 0 = best(min), 1 = worst(max)
                 const normalized = (s - min) / range; 
-                // We want min at top, max at bottom.
-                // y = padding + normalized * (height - padding*2)
                 const y = padding + normalized * (height - padding * 2);
                 return `${x},${y}`;
             }).join(' ');
@@ -314,43 +240,30 @@
             return (
                 <div className="w-full flex flex-col items-center">
                     <svg width="100%" viewBox={`0 0 ${width} ${height}`} className="overflow-visible font-mono text-[8px] text-slate-400">
-                        {/* Grid lines and Labels */}
                         <line x1={padding} y1={padding} x2={width-padding} y2={padding} stroke="#f1f5f9" strokeWidth="1" />
                         <text x={padding - 5} y={padding + 3} textAnchor="end">{formatTime(min, timerFormat)}</text>
                         
                         <line x1={padding} y1={height-padding} x2={width-padding} y2={height-padding} stroke="#f1f5f9" strokeWidth="1" />
                         <text x={padding - 5} y={height - padding + 3} textAnchor="end">{formatTime(max, timerFormat)}</text>
                         
-                        {/* Axis */}
                         <line x1={padding} y1={padding} x2={padding} y2={height-padding} stroke="#e2e8f0" strokeWidth="1" />
                         <line x1={padding} y1={height-padding} x2={width-padding} y2={height-padding} stroke="#e2e8f0" strokeWidth="1" />
 
-                        {/* Polyline */}
                         <polyline fill="none" stroke="#6366f1" strokeWidth="2" points={points} strokeLinejoin="round" />
                         
-                        {/* Dots and Dates */}
                         {sortedRecords.map((r, i) => {
                              const s = r.finalScore;
                              const normalized = (s - min) / range;
                              const x = padding + (i / (scores.length - 1 || 1)) * (width - padding * 2);
                              const y = padding + normalized * (height - padding * 2);
-                             const date = new Date(r.timestamp);
-                             const dateStr = `${date.getMonth()+1}/${date.getDate()}`;
                              
                              return (
                                 <g key={i}>
                                     <circle cx={x} cy={y} r="3" fill="#4f46e5" stroke="white" strokeWidth="1" />
-                                    {/* Show date for first, last, and maybe some in between if sparse */}
-                                    {(i === 0 || i === sortedRecords.length - 1 || (sortedRecords.length < 10)) && (
-                                        <text x={x} y={height - padding + 15} textAnchor="middle">{dateStr}</text>
-                                    )}
                                 </g>
                              );
                         })}
                     </svg>
-                    <div className="mt-4 text-xs font-bold text-slate-500 bg-slate-50 px-4 py-2 rounded-lg">
-                        Total Records: {records.length}
-                    </div>
                 </div>
             );
         };
@@ -390,21 +303,6 @@
                 return () => { if (timerRef.current) cancelAnimationFrame(timerRef.current); };
             }, [gameState, updateTimer]);
 
-            // Top-level effect for confetti celebration
-            useEffect(() => {
-                if (gameState === 'finished' && currentResult && !isRegistered) {
-                    const records = JSON.parse(localStorage.getItem('calendar_records') || '[]');
-                    const filtered = records.filter(r => r.range === selectedRange);
-                    
-                    if (filtered.length > 0) {
-                        const best = Math.min(...filtered.map(r => r.finalScore));
-                        if (currentResult.finalScore <= best) {
-                            confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
-                        }
-                    }
-                }
-            }, [gameState, isRegistered, selectedRange, currentResult]);
-
             const generateRandomDate = (range) => {
                 let startYear, endYear;
                 const now = new Date();
@@ -419,9 +317,7 @@
 
             const startCountdown = (range) => {
                 setSelectedRange(range); setLaps([]); setFeedback(null); setGameState('countdown');
-                setIsRegistered(false);
-                setCurrentResult(null);
-                setCurrentSessionId(generateId());
+                setIsRegistered(false); setCurrentResult(null); setCurrentSessionId(generateId());
                 setQuestions(Array.from({ length: 5 }, () => generateRandomDate(range)));
                 let count = settings.countdownSeconds;
                 setCountdownText(count.toString());
@@ -444,10 +340,14 @@
                 const correctDayIndex = targetDate.getDay();
                 const isCorrect = dayIndex === correctDayIndex;
                 const now = performance.now();
+                const prevTotalDuration = laps.reduce((acc, l) => acc + l.duration, 0);
+                const questionDuration = (now - startTime) - prevTotalDuration;
+
                 const record = {
                     questionNumber: activeQuestion + 1,
                     date: formatDate(targetDate),
                     correct: isCorrect,
+                    duration: questionDuration,
                     userAnswer: (globalSettings.lang === 'ja' ? DAYS_JP_LONG : DAYS_EN_LONG)[dayIndex],
                     correctAnswer: (globalSettings.lang === 'ja' ? DAYS_JP_LONG : DAYS_EN_LONG)[correctDayIndex]
                 };
@@ -469,15 +369,17 @@
                             laps: [...laps, record], 
                             settings 
                         };
-                        
-                        // Save to history (latest first)
                         const history = JSON.parse(localStorage.getItem('calendar_history') || '[]');
                         history.unshift(session);
                         localStorage.setItem('calendar_history', JSON.stringify(history.slice(0, 100)));
-                        
-                        // Update state
                         setCurrentResult(session);
                         setGameState('finished');
+                        // Celebration
+                        const records = JSON.parse(localStorage.getItem('calendar_records') || '[]');
+                        const filtered = records.filter(r => r.range === selectedRange);
+                        if (filtered.length === 0 || session.finalScore <= Math.min(...filtered.map(r => r.finalScore))) {
+                            confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+                        }
                     }
                 }, 300);
             };
@@ -490,25 +392,20 @@
                 setIsRegistered(true);
             };
 
-            const getBestScore = () => {
+            const getBestScore = (range) => {
                 const records = JSON.parse(localStorage.getItem('calendar_records') || '[]');
-                const filtered = records.filter(r => r.range === selectedRange);
+                const filtered = records.filter(r => r.range === range);
                 if (filtered.length === 0) return null;
                 return Math.min(...filtered.map(r => r.finalScore));
             };
 
-            const getRegisteredRecords = () => {
-                const records = JSON.parse(localStorage.getItem('calendar_records') || '[]');
-                return records.filter(r => r.range === selectedRange);
-            };
-
-            const handleRetryCheck = (action) => {
-                if (!isRegistered && gameState === 'finished') {
-                    if (window.confirm(t.confirmDiscard)) {
-                        action();
-                    }
+            const handleHomeClick = () => {
+                if (gameState === 'playing' || gameState === 'countdown') {
+                    if (window.confirm(t.confirmQuit)) onBack();
+                } else if (gameState === 'finished' && !isRegistered) {
+                    if (window.confirm(t.confirmDiscard)) onBack();
                 } else {
-                    action();
+                    onBack();
                 }
             };
 
@@ -533,24 +430,29 @@
 
             if (gameState === 'idle') {
                 return (
-                    <div className="h-full flex flex-col p-4">
+                    <div className="h-full flex flex-col p-4 overflow-y-auto no-scrollbar">
                         <div className="flex justify-between items-center mb-6">
-                            <button onClick={onBack} className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-slate-500 shadow-sm"><i className="fa-solid fa-arrow-left"></i></button>
+                            <button onClick={handleHomeClick} className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-slate-500 shadow-sm"><i className="fa-solid fa-house"></i></button>
                             <h2 className="text-lg font-bold text-slate-800">{t.calendar}</h2>
                             <button onClick={() => setIsLocalSettingsOpen(true)} className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-slate-500 shadow-sm"><i className="fa-solid fa-cog"></i></button>
                         </div>
-                        <div className="flex-grow flex flex-col items-center justify-center text-center -mt-10">
+                        <div className="flex-grow flex flex-col items-center justify-center text-center -mt-6">
                             <div className="mb-6 p-6 bg-indigo-50 rounded-full text-indigo-600 shadow-inner"><i className="fa-solid fa-calendar-days text-5xl"></i></div>
                             <p className="text-slate-500 text-xs mb-8">{t.penaltyText}</p>
-                            <div className="w-full space-y-3 max-w-sm">
+                            <div className="w-full space-y-3 max-w-sm mb-10">
                                 {[{id:'recent',label:t.recent,desc:t.ja?'去年〜来年':'Last-Next Year',icon:'fa-clock'}, {id:'birthday',label:t.birthday,desc:t.ja?'過去80年':'Past 80Y',icon:'fa-cake-candles'}, {id:'competition',label:t.competition,desc:'1500-2500',icon:'fa-trophy'}].map(r => (
-                                    <button key={r.id} onClick={() => startCountdown(r.id)} className="w-full flex items-center p-4 bg-white border border-slate-100 rounded-2xl shadow-sm active:scale-95 transition-all">
-                                        <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 mr-4"><i className={`fa-solid ${r.icon}`}></i></div>
-                                        <div className="text-left">
-                                            <div className="font-bold text-slate-800">{r.label}</div>
-                                            <div className="text-[10px] font-bold text-slate-400">{r.desc}</div>
-                                        </div>
-                                    </button>
+                                    <div key={r.id} className="relative group">
+                                        <button onClick={() => startCountdown(r.id)} className="w-full flex items-center p-4 bg-white border border-slate-100 rounded-2xl shadow-sm active:scale-95 transition-all pr-12">
+                                            <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 mr-4"><i className={`fa-solid ${r.icon}`}></i></div>
+                                            <div className="text-left">
+                                                <div className="font-bold text-slate-800">{r.label}</div>
+                                                <div className="text-[10px] font-bold text-slate-400">{r.desc}</div>
+                                            </div>
+                                        </button>
+                                        <button onClick={() => { setSelectedRange(r.id); setIsGraphOpen(true); }} className="absolute right-4 top-1/2 -translate-y-1/2 text-indigo-400 p-2 hover:text-indigo-600">
+                                            <i className="fa-solid fa-chart-line"></i>
+                                        </button>
+                                    </div>
                                 ))}
                             </div>
                         </div>
@@ -572,7 +474,7 @@
                                             <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">{t.yearMode}</label>
                                             <div className="grid grid-cols-3 gap-2">
                                                 {['western', 'japanese', 'both'].map(m => (
-                                                    <button key={m} onClick={() => updateLocalSettings('yearMode', m)} className={`py-2.5 rounded-xl border-2 font-bold text-xs ${settings.yearMode === m ? 'bg-indigo-50 border-indigo-600 text-indigo-600' : 'border-slate-100'}`}>{t[m] || m}</button>
+                                                    <button key={m} onClick={() => updateLocalSettings('yearMode', m)} className={`py-2.5 rounded-xl border-2 font-bold text-xs ${settings.yearMode === m ? 'bg-indigo-50 border-indigo-600 text-indigo-600' : 'border-slate-100'}`}>{m === 'japanese' ? t.era : t[m] || m}</button>
                                                 ))}
                                             </div>
                                         </section>
@@ -593,6 +495,21 @@
                                 </div>
                             </div>
                         )}
+                        {isGraphOpen && (
+                            <div className="fixed inset-0 z-[120] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+                                <div className="bg-white w-full max-w-sm rounded-[3rem] p-8 shadow-2xl">
+                                    <div className="flex justify-between items-center mb-8">
+                                        <h3 className="text-xl font-black flex items-center gap-2 text-slate-800">
+                                            <i className="fa-solid fa-chart-line text-indigo-500"></i> {t.graph} 
+                                            <span className="text-[10px] bg-indigo-50 px-3 py-1 rounded-full text-indigo-600 font-black uppercase tracking-widest ml-1">{t[selectedRange] || selectedRange}</span>
+                                        </h3>
+                                        <button onClick={() => setIsGraphOpen(false)} className="w-10 h-10 flex items-center justify-center bg-slate-100 rounded-2xl text-slate-500 hover:bg-slate-200 transition-colors"><i className="fa-solid fa-xmark"></i></button>
+                                    </div>
+                                    <TrendGraph records={JSON.parse(localStorage.getItem('calendar_records') || '[]').filter(r => r.range === selectedRange)} timerFormat={settings.timerFormat} t={t} />
+                                    <button onClick={() => setIsGraphOpen(false)} className="w-full mt-10 py-4 bg-slate-900 text-white font-black rounded-2xl hover:bg-slate-800 transition-colors">{t.back}</button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 );
             }
@@ -603,7 +520,7 @@
                 return (
                     <div className="h-full flex flex-col p-4 overflow-hidden">
                         <div className="flex justify-between items-start mb-2 flex-none">
-                            <button onClick={() => setGameState('idle')} className="text-slate-400 hover:text-slate-600 py-2"><i className="fa-solid fa-arrow-left"></i></button>
+                            <button onClick={handleHomeClick} className="text-slate-400 hover:text-slate-600 py-2"><i className="fa-solid fa-house"></i></button>
                             <div className="flex flex-col items-center">
                                 <span className="text-5xl font-mono font-black text-slate-800">{formatTime(currentTime - startTime, settings.timerFormat)}</span>
                             </div>
@@ -612,13 +529,6 @@
                         <div className="text-center mb-4 flex-none">
                             <span className="text-xs font-bold text-indigo-600 uppercase tracking-widest">{activeQuestion + 1} / 5</span>
                         </div>
-                        
-                        {/* 
-                            Questions container: 
-                            Limit height to ~45% of screen to keep buttons up. 
-                            Use flex-col-reverse or justify-end logic if we want latest at bottom? 
-                            Standard top-down is fine, but we ensure it doesn't push buttons to very bottom.
-                        */}
                         <div className="space-y-2 overflow-y-auto no-scrollbar py-2 h-[45vh] flex-none">
                             {questions.map((q, idx) => {
                                 const isAnswered = idx < laps.length;
@@ -636,10 +546,8 @@
                                 );
                             })}
                         </div>
-
-                        {/* Buttons container - fills remaining space but justifies start/center to sit higher */}
                         <div className="flex-grow flex items-start justify-center pt-4">
-                            <div className="grid grid-cols-7 gap-1 w-full">
+                            <div className="grid grid-cols-7 gap-1 w-full max-w-sm">
                                 {dayList.map(({ label, index }) => (
                                     <button key={label} onClick={() => handleAnswer(index)} className={`aspect-[3/4] flex flex-col items-center justify-center gap-1 rounded-xl shadow-sm border active:scale-95 transition-transform ${index === 0 ? 'text-red-500 bg-red-50 border-red-100' : index === 6 ? 'text-blue-500 bg-blue-50 border-blue-100' : 'bg-white border-slate-200 text-slate-700'}`}>
                                         <span className="font-bold text-lg sm:text-xl">{label}</span>
@@ -653,265 +561,145 @@
             }
 
             if (gameState === 'finished') {
-                if (!currentResult) return null; // Should not happen given logic, but safety check
-
+                if (!currentResult) return null;
                 const avg = currentResult.totalTime / 5;
-                const best = getBestScore();
+                const best = getBestScore(selectedRange);
                 const isNewRecord = best !== null && currentResult.finalScore <= best;
 
                 return (
-                    <div className="h-full flex flex-col p-6 overflow-y-auto no-scrollbar">
-                        <div className="flex justify-between items-center mb-4">
-                            <h2 className="text-xl font-bold flex items-center gap-2"><i className="fa-solid fa-trophy text-amber-500"></i> {t.result}</h2>
-                            <button onClick={() => setIsGraphOpen(true)} className="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-2 rounded-lg"><i className="fa-solid fa-chart-line"></i> {t.graph}</button>
+                    <div className="h-full flex flex-col p-4 overflow-y-auto no-scrollbar">
+                        <div className="flex justify-between items-center mb-6 pt-2">
+                            <h2 className="text-2xl font-black flex items-center gap-3 text-slate-800"><i className="fa-solid fa-trophy text-amber-500"></i> {t.result}</h2>
+                            <button onClick={handleHomeClick} className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-slate-500 shadow-sm"><i className="fa-solid fa-house"></i></button>
                         </div>
 
-                        <div className="bg-indigo-600 text-white rounded-[2rem] p-6 mb-6 shadow-xl relative overflow-hidden">
-                            {isNewRecord && <div className="absolute top-0 right-0 bg-yellow-400 text-yellow-900 text-[10px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-widest">{t.newRecord}</div>}
+                        {/* Consolidated Linear Score Card */}
+                        <div className="w-full bg-indigo-600 text-white rounded-[2.5rem] p-8 sm:p-10 mb-8 shadow-2xl relative flex flex-col items-center text-center">
+                            {isNewRecord && (
+                                <div className="absolute top-0 right-0 bg-yellow-400 text-yellow-900 text-[10px] font-black px-4 py-1.5 rounded-bl-2xl uppercase tracking-widest shadow-md">
+                                    {t.newRecord}
+                                </div>
+                            )}
                             
-                            <div className="mb-6">
-                                <div className="text-xs font-bold opacity-70 uppercase mb-1">{t.finalScore}</div>
-                                <div className="flex items-center justify-between">
-                                    <div className="text-4xl font-mono font-black">{formatTime(currentResult.finalScore, settings.timerFormat)}</div>
-                                    <button onClick={() => handleRegister(currentResult)} disabled={isRegistered} className={`px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${isRegistered ? 'bg-white/20 text-white/50' : 'bg-white text-indigo-600 hover:scale-105 shadow-md'}`}>
-                                        {isRegistered ? <><i className="fa-solid fa-check"></i> {t.registered}</> : <><i className="fa-solid fa-save"></i> {t.register}</>}
-                                    </button>
+                            <div className="text-[11px] font-black opacity-60 uppercase tracking-widest mb-1">{t.finalScore}</div>
+                            <div className="text-6xl sm:text-7xl font-mono font-black mb-10 tracking-tighter drop-shadow-lg truncate w-full">
+                                {formatTime(currentResult.finalScore, settings.timerFormat)}
+                            </div>
+
+                            <button 
+                                onClick={() => handleRegister(currentResult)} 
+                                disabled={isRegistered} 
+                                className={`w-full py-5 rounded-[2rem] text-lg font-black flex items-center justify-center gap-3 mb-10 transition-all duration-300 ${isRegistered ? 'bg-white/20 text-white/50 cursor-default' : 'bg-white text-indigo-600 hover:scale-105 active:scale-95 shadow-xl'}`}
+                            >
+                                {isRegistered ? <><i className="fa-solid fa-check-double"></i> {t.registered}</> : <><i className="fa-solid fa-floppy-disk"></i> {t.register}</>}
+                            </button>
+
+                            <div className="w-full space-y-6 pt-10 border-t border-white/20">
+                                <div className="flex justify-between items-center w-full">
+                                    <div className="text-left">
+                                        <div className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-0.5">{t.avgTime}</div>
+                                        <div className="font-mono font-black text-2xl">{formatTime(avg, 'ss')}</div>
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-0.5">{t.bestScore}</div>
+                                        <div className="font-mono font-black text-2xl text-yellow-300">{best ? formatTime(best, settings.timerFormat) : '-'}</div>
+                                    </div>
+                                </div>
+                                <div className="flex justify-between items-center w-full">
+                                    <div className="text-left">
+                                        <div className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-0.5">{t.penalty}</div>
+                                        <div className={`font-mono font-black text-2xl ${currentResult.penaltySeconds > 0 ? 'text-red-300' : 'text-green-300'}`}>+{currentResult.penaltySeconds}s</div>
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-0.5">{t.rawTime}</div>
+                                        <div className="font-mono font-bold text-xl opacity-80">{formatTime(currentResult.totalTime, settings.timerFormat)}</div>
+                                    </div>
                                 </div>
                             </div>
-                            
-                            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/20">
-                                <div><span className="text-[10px] font-bold opacity-70 uppercase block mb-1">{t.rawTime}</span><span className="font-bold">{formatTime(currentResult.totalTime, settings.timerFormat)}</span></div>
-                                <div><span className="text-[10px] font-bold opacity-70 uppercase block mb-1">{t.penalty}</span><span className="font-bold">+{currentResult.penaltySeconds}s</span></div>
-                            </div>
-                            <div className="mt-4 pt-4 border-t border-white/20 flex justify-between items-center">
-                                <span className="text-[10px] font-bold opacity-70 uppercase">{t.bestScore}</span>
-                                <span className="font-mono font-bold text-lg">{best ? formatTime(best, settings.timerFormat) : '-'}</span>
-                            </div>
                         </div>
 
-                        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm mb-6 flex justify-between items-center">
-                             <span className="text-xs font-bold text-slate-400 uppercase">{t.avgTime}</span>
-                             <span className="font-mono font-black text-lg text-slate-700">{formatTime(avg, 'ss')}</span>
-                        </div>
-                        
-                        <div className="space-y-2 mb-8">
+                        {/* LAP DATA REVIEW */}
+                        <div className="mb-10 space-y-4">
                             {currentResult.laps.map((lap, i) => (
-                                <div key={i} className="bg-white rounded-2xl p-4 border border-slate-100 flex items-center justify-between shadow-sm">
-                                    <div className="flex items-center gap-3">
-                                        <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] ${lap.correct ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>{i + 1}</div>
-                                        <div className="flex flex-col"><span className="text-[10px] text-slate-400 font-bold">{lap.date}</span><span className="text-sm font-bold">{lap.userAnswer} {!lap.correct && <span className="text-red-400 ml-1">→ {lap.correctAnswer}</span>}</span></div>
+                                <div key={i} className="bg-white rounded-3xl p-5 border border-slate-100 flex items-center justify-between shadow-sm">
+                                    <div className="flex items-center gap-4">
+                                        <div className={`w-8 h-8 rounded-2xl flex items-center justify-center font-black text-xs ${lap.correct ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>{i + 1}</div>
+                                        <div className="flex flex-col">
+                                            <span className="text-[10px] text-slate-400 font-black tracking-wider mb-0.5">{lap.date}</span>
+                                            <span className="text-base font-bold text-slate-700">
+                                                {lap.userAnswer} {!lap.correct && <span className="text-red-400 ml-1">→ {lap.correctAnswer}</span>}
+                                            </span>
+                                        </div>
                                     </div>
-                                    <i className={`fa-solid ${lap.correct ? 'fa-circle-check text-green-500' : 'fa-circle-xmark text-red-400'}`}></i>
+                                    <div className="flex flex-col items-end gap-1">
+                                        <div className="text-xs font-mono font-black text-slate-400 tracking-tight">{formatTime(lap.duration, 'ss')}</div>
+                                        {lap.correct ? <i className="fa-solid fa-circle-check text-green-500"></i> : <i className="fa-solid fa-circle-xmark text-red-400"></i>}
+                                    </div>
                                 </div>
                             ))}
                         </div>
-                        <div className="mt-auto space-y-3">
-                            <button onClick={() => handleRetryCheck(() => startCountdown(selectedRange))} className="w-full py-4 bg-indigo-600 text-white font-bold rounded-2xl shadow-lg active:scale-95">{t.retry}</button>
-                            <button onClick={() => handleRetryCheck(() => setGameState('idle'))} className="w-full py-4 bg-white border border-slate-200 text-slate-600 font-bold rounded-2xl active:scale-95">{t.changeRange}</button>
-                        </div>
 
-                        {isGraphOpen && (
-                            <div className="fixed inset-0 z-[120] bg-black/60 flex items-center justify-center p-4">
-                                <div className="bg-white w-full max-w-sm rounded-[2rem] p-6 shadow-2xl">
-                                    <div className="flex justify-between items-center mb-6">
-                                        <h3 className="text-lg font-bold flex items-center gap-2"><i className="fa-solid fa-chart-line text-indigo-500"></i> {t.graph} <span className="text-xs bg-slate-100 px-2 py-1 rounded text-slate-500">{t[selectedRange] || selectedRange}</span></h3>
-                                        <button onClick={() => setIsGraphOpen(false)} className="w-8 h-8 flex items-center justify-center bg-slate-100 rounded-full text-slate-500"><i className="fa-solid fa-xmark"></i></button>
-                                    </div>
-                                    <TrendGraph records={getRegisteredRecords()} timerFormat={settings.timerFormat} t={t} />
-                                    <button onClick={() => setIsGraphOpen(false)} className="w-full mt-6 py-3 bg-slate-900 text-white font-bold rounded-xl">{t.back}</button>
-                                </div>
-                            </div>
-                        )}
+                        {/* Actions */}
+                        <div className="space-y-4 pb-12 mt-auto">
+                            <button onClick={() => handleRetryCheck(() => startCountdown(selectedRange))} className="w-full py-6 bg-indigo-600 text-white text-xl font-black rounded-[2rem] shadow-lg active:scale-95 transition-all">
+                                <i className="fa-solid fa-rotate-right mr-3"></i> {t.retry}
+                            </button>
+                            <button onClick={() => handleRetryCheck(() => setGameState('idle'))} className="w-full py-6 bg-white border-2 border-slate-100 text-slate-600 text-xl font-black rounded-[2rem] active:scale-95 transition-all">
+                                <i className="fa-solid fa-sliders mr-3"></i> {t.changeRange}
+                            </button>
+                        </div>
                     </div>
                 );
             }
         };
 
         const NumberTrainer = ({ onBack, globalSettings, t }) => {
-            const [currentValue, setCurrentValue] = useState('');
             const [gameState, setGameState] = useState('idle');
+            const [currentValue, setCurrentValue] = useState('');
             const [isLocalSettingsOpen, setIsLocalSettingsOpen] = useState(false);
             const [history, setHistory] = useState([]);
-            const [countdownText, setCountdownText] = useState('');
             const [settings, setSettings] = useState(() => {
                 const saved = localStorage.getItem('number_settings');
-                return saved ? JSON.parse(saved) : { digitPairs: 2, range: 'all', autoNext: 0, spacing: true, countdownSeconds: 3 };
+                return saved ? JSON.parse(saved) : { digitPairs: 2, countdownSeconds: 3, spacing: true, autoNext: 0 };
             });
-            const autoTimerRef = useRef(null);
-
             const generate = useCallback(() => {
                 let res = '';
-                // digitPairs now represents actual digits length: 1, 2, 3, 4
-                const totalDigits = settings.digitPairs;
-                
-                // Logic: Generate random string of length totalDigits
-                for (let i = 0; i < totalDigits; i++) {
-                     res += Math.floor(Math.random() * 10).toString();
-                }
-
-                // Handle spacing if 4 digits
-                if (settings.spacing && totalDigits === 4) {
-                    return res.slice(0, 2) + ' ' + res.slice(2);
-                }
-                
+                for (let i = 0; i < settings.digitPairs; i++) res += Math.floor(Math.random() * 10).toString();
+                if (settings.spacing && settings.digitPairs === 4) return res.slice(0, 2) + ' ' + res.slice(2);
                 return res;
             }, [settings]);
 
             const startCountdown = () => {
                 setGameState('countdown');
                 let count = settings.countdownSeconds || 3;
-                setCountdownText(count.toString());
-                const interval = window.setInterval(() => {
-                    count -= 1;
-                    if (count === 0) setCountdownText('START!');
-                    else if (count < 0) { 
-                        clearInterval(interval); 
-                        setGameState('playing');
-                        setCurrentValue(generate());
-                        setHistory([]);
-                    }
-                    else setCountdownText(count.toString());
+                const interval = setInterval(() => {
+                    count--;
+                    if (count < 0) { clearInterval(interval); setGameState('playing'); setCurrentValue(generate()); setHistory([]); }
                 }, 1000);
             };
 
-            useEffect(() => {
-                if (gameState === 'playing') {
-                     setCurrentValue(generate());
-                }
-                return () => { if(autoTimerRef.current) clearInterval(autoTimerRef.current); };
-            }, [gameState, generate]); // Re-generate when entering playing state initially handled in countdown finish, but depend on generate if settings change? No, only on state change.
-
-            useEffect(() => {
-                if(settings.autoNext > 0 && gameState === 'playing') {
-                    autoTimerRef.current = setInterval(() => { next(); }, settings.autoNext * 1000);
-                } else { if(autoTimerRef.current) clearInterval(autoTimerRef.current); }
-                return () => { if(autoTimerRef.current) clearInterval(autoTimerRef.current); };
-            }, [settings.autoNext, gameState]);
-
-            const next = () => {
-                setHistory(prev => [currentValue, ...prev].slice(0, 5));
-                setCurrentValue(generate());
-            };
-
-            const updateSettings = (key, val) => {
-                const ns = {...settings, [key]: val};
-                setSettings(ns);
-                localStorage.setItem('number_settings', JSON.stringify(ns));
-            };
-
-            if (gameState === 'idle') {
-                return (
-                    <div className="h-full flex flex-col p-4">
-                        <div className="flex justify-between items-center mb-6">
-                            <button onClick={onBack} className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-slate-500 shadow-sm"><i className="fa-solid fa-arrow-left"></i></button>
-                            <h2 className="text-lg font-bold text-slate-800">{t.number}</h2>
-                            <button onClick={() => setIsLocalSettingsOpen(true)} className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-slate-500 shadow-sm"><i className="fa-solid fa-cog"></i></button>
-                        </div>
-                         <div className="flex-grow flex flex-col items-center justify-center text-center -mt-10">
-                            <div className="mb-6 p-6 bg-emerald-50 rounded-full text-emerald-600 shadow-inner"><i className="fa-solid fa-hashtag text-5xl"></i></div>
-                            <button onClick={startCountdown} className="w-full max-w-sm py-5 bg-emerald-600 text-white font-bold rounded-2xl shadow-lg active:scale-95 transition-all text-xl">{t.start}</button>
-                        </div>
-                        
-                        {isLocalSettingsOpen && (
-                        <div className="fixed inset-0 z-[110] bg-black/60 flex items-center justify-center p-4">
-                            <div className="bg-white w-full max-w-sm rounded-[2rem] p-6 shadow-2xl overflow-y-auto max-h-[85vh] no-scrollbar">
-                                <h3 className="text-lg font-bold mb-6 flex items-center gap-2"><i className="fa-solid fa-cog"></i> {t.gameSettings}</h3>
-                                <div className="space-y-5">
-                                    <section>
-                                        <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">{t.countdown}</label>
-                                        <div className="grid grid-cols-3 gap-2">
-                                            {[3, 5, 10].map(s => (
-                                                <button key={s} onClick={() => updateSettings('countdownSeconds', s)} className={`py-2.5 rounded-xl border-2 font-bold text-sm ${settings.countdownSeconds === s ? 'bg-emerald-50 border-emerald-600 text-emerald-600' : 'border-slate-100'}`}>{s}s</button>
-                                            ))}
-                                        </div>
-                                    </section>
-                                    <section>
-                                        <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">{t.digitPairs}</label>
-                                        <div className="grid grid-cols-4 gap-2">
-                                            {[1, 2, 3, 4].map(v => (
-                                                <button key={v} onClick={() => updateSettings('digitPairs', v)} className={`py-2.5 rounded-xl border-2 font-bold text-sm ${settings.digitPairs === v ? 'bg-emerald-50 border-emerald-600 text-emerald-600' : 'border-slate-100'}`}>{v}</button>
-                                            ))}
-                                        </div>
-                                    </section>
-                                    <section>
-                                        <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">{t.autoNext}</label>
-                                        <div className="grid grid-cols-4 gap-2">
-                                            {[0, 1, 2, 3, 5].map(v => (
-                                                <button key={v} onClick={() => updateSettings('autoNext', v)} className={`py-2.5 rounded-xl border-2 font-bold text-sm ${settings.autoNext === v ? 'bg-emerald-50 border-emerald-600 text-emerald-600' : 'border-slate-100'}`}>{v === 0 ? t.autoNextOff : v+'s'}</button>
-                                            ))}
-                                        </div>
-                                    </section>
-                                    <section>
-                                        <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">{t.spacing}</label>
-                                        <button onClick={() => updateSettings('spacing', !settings.spacing)} className={`w-full py-3 rounded-xl border-2 font-bold text-sm ${settings.spacing ? 'bg-emerald-50 border-emerald-600 text-emerald-600' : 'border-slate-100'}`}>{settings.spacing ? 'ON' : 'OFF'}</button>
-                                    </section>
-                                </div>
-                                <button onClick={() => setIsLocalSettingsOpen(false)} className="w-full mt-8 py-4 bg-slate-900 text-white font-bold rounded-2xl">{t.back}</button>
-                            </div>
-                        </div>
-                        )}
-                    </div>
-                );
-            }
-
-            if (gameState === 'countdown') return <div className="h-full flex items-center justify-center bg-emerald-600 text-white"><div className="text-8xl font-black animate-countdown px-4 text-center">{countdownText}</div></div>;
+            const next = () => { setHistory(prev => [currentValue, ...prev].slice(0, 5)); setCurrentValue(generate()); };
 
             return (
-                <div className="h-full flex flex-col p-6">
+                <div className="h-full flex flex-col p-4 relative">
                     <div className="flex justify-between items-center mb-6">
-                         <button onClick={() => setGameState('idle')} className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-slate-500 shadow-sm"><i className="fa-solid fa-arrow-left"></i></button>
+                        <button onClick={onBack} className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-slate-500 shadow-sm"><i className="fa-solid fa-house"></i></button>
                         <h2 className="text-lg font-bold text-slate-800">{t.number}</h2>
                         <button onClick={() => setIsLocalSettingsOpen(true)} className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-slate-500 shadow-sm"><i className="fa-solid fa-cog"></i></button>
                     </div>
-
-                    <div className="flex-grow flex flex-col items-center justify-center py-4">
-                        <div className="text-6xl sm:text-8xl font-mono font-black text-emerald-600 tracking-tight text-center break-all">
-                            {currentValue}
+                    {gameState === 'idle' ? (
+                        <div className="flex-grow flex flex-col items-center justify-center -mt-10">
+                            <div className="mb-6 p-6 bg-emerald-50 rounded-full text-emerald-600 shadow-inner"><i className="fa-solid fa-hashtag text-5xl"></i></div>
+                            <button onClick={startCountdown} className="w-full max-w-sm py-5 bg-emerald-600 text-white font-bold rounded-2xl shadow-lg active:scale-95 text-xl">{t.start}</button>
                         </div>
-                    </div>
-
-                    <div className="mt-auto">
-                        <div className="flex flex-wrap justify-center gap-2 mb-8">
-                            {history.map((h, i) => <span key={i} className="px-2 py-1 bg-white text-slate-400 font-mono text-xs font-bold rounded-lg border border-slate-100">{h}</span>)}
-                        </div>
-                        <button onClick={next} className="w-full py-6 bg-emerald-600 text-white text-xl font-bold rounded-3xl shadow-lg active:scale-95">{t.next}</button>
-                    </div>
-                    {/* Settings Modal Duplicate for Playing State */}
-                    {isLocalSettingsOpen && (
-                        <div className="fixed inset-0 z-[110] bg-black/60 flex items-center justify-center p-4">
-                            <div className="bg-white w-full max-w-sm rounded-[2rem] p-6 shadow-2xl overflow-y-auto max-h-[85vh] no-scrollbar">
-                                <h3 className="text-lg font-bold mb-6 flex items-center gap-2"><i className="fa-solid fa-cog"></i> {t.gameSettings}</h3>
-                                <div className="space-y-5">
-                                    <section>
-                                        <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">{t.countdown}</label>
-                                        <div className="grid grid-cols-3 gap-2">
-                                            {[3, 5, 10].map(s => (
-                                                <button key={s} onClick={() => updateSettings('countdownSeconds', s)} className={`py-2.5 rounded-xl border-2 font-bold text-sm ${settings.countdownSeconds === s ? 'bg-emerald-50 border-emerald-600 text-emerald-600' : 'border-slate-100'}`}>{s}s</button>
-                                            ))}
-                                        </div>
-                                    </section>
-                                    <section>
-                                        <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">{t.digitPairs}</label>
-                                        <div className="grid grid-cols-4 gap-2">
-                                            {[1, 2, 3, 4].map(v => (
-                                                <button key={v} onClick={() => updateSettings('digitPairs', v)} className={`py-2.5 rounded-xl border-2 font-bold text-sm ${settings.digitPairs === v ? 'bg-emerald-50 border-emerald-600 text-emerald-600' : 'border-slate-100'}`}>{v}</button>
-                                            ))}
-                                        </div>
-                                    </section>
-                                    <section>
-                                        <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">{t.autoNext}</label>
-                                        <div className="grid grid-cols-4 gap-2">
-                                            {[0, 1, 2, 3, 5].map(v => (
-                                                <button key={v} onClick={() => updateSettings('autoNext', v)} className={`py-2.5 rounded-xl border-2 font-bold text-sm ${settings.autoNext === v ? 'bg-emerald-50 border-emerald-600 text-emerald-600' : 'border-slate-100'}`}>{v === 0 ? t.autoNextOff : v+'s'}</button>
-                                            ))}
-                                        </div>
-                                    </section>
-                                    <section>
-                                        <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">{t.spacing}</label>
-                                        <button onClick={() => updateSettings('spacing', !settings.spacing)} className={`w-full py-3 rounded-xl border-2 font-bold text-sm ${settings.spacing ? 'bg-emerald-50 border-emerald-600 text-emerald-600' : 'border-slate-100'}`}>{settings.spacing ? 'ON' : 'OFF'}</button>
-                                    </section>
+                    ) : (
+                        <div className="flex-grow flex flex-col items-center justify-center py-4">
+                            <div className="text-6xl sm:text-8xl font-mono font-black text-emerald-600 text-center break-all">{currentValue}</div>
+                            <div className="mt-20 w-full max-w-sm">
+                                <div className="flex flex-wrap justify-center gap-2 mb-8 h-10">
+                                    {history.map((h, i) => <span key={i} className="px-2 py-1 bg-white text-slate-400 font-mono text-xs font-bold rounded-lg border border-slate-100">{h}</span>)}
                                 </div>
-                                <button onClick={() => setIsLocalSettingsOpen(false)} className="w-full mt-8 py-4 bg-slate-900 text-white font-bold rounded-2xl">{t.back}</button>
+                                <button onClick={next} className="w-full py-6 bg-emerald-600 text-white text-2xl font-black rounded-[2rem] shadow-xl active:scale-95">{t.next}</button>
                             </div>
                         </div>
                     )}
@@ -921,33 +709,18 @@
 
         const LetterPairTrainer = ({ onBack, globalSettings, t }) => {
             const [currentValue, setCurrentValue] = useState('あう');
-            const [isLocalSettingsOpen, setIsLocalSettingsOpen] = useState(false);
             const gen = () => HIRAGANA_SET[Math.floor(Math.random() * HIRAGANA_SET.length)] + HIRAGANA_SET[Math.floor(Math.random() * HIRAGANA_SET.length)];
-            const next = () => setCurrentValue(gen());
-
             return (
-                <div className="h-full flex flex-col p-6">
+                <div className="h-full flex flex-col p-4">
                     <div className="flex justify-between items-center mb-10">
-                        <button onClick={onBack} className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-slate-500 shadow-sm"><i className="fa-solid fa-home"></i></button>
+                        <button onClick={onBack} className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-slate-500 shadow-sm"><i className="fa-solid fa-house"></i></button>
                         <h2 className="text-lg font-bold text-slate-800">{t.letter}</h2>
-                        <button onClick={() => setIsLocalSettingsOpen(true)} className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-slate-500 shadow-sm"><i className="fa-solid fa-cog"></i></button>
+                        <div className="w-10 h-10"></div>
                     </div>
-                    <div className="flex-grow flex flex-col items-center justify-center py-4">
-                        <div className="text-8xl font-black text-emerald-600 tracking-widest text-center">
-                            {currentValue}
-                        </div>
+                    <div className="flex-grow flex flex-col items-center justify-center -mt-10">
+                        <div className="text-8xl font-black text-emerald-600 tracking-widest text-center mb-16">{currentValue}</div>
+                        <button onClick={() => setCurrentValue(gen())} className="w-full max-w-sm py-6 bg-emerald-600 text-white text-2xl font-black rounded-[2rem] shadow-xl active:scale-95">{t.next}</button>
                     </div>
-                    <button onClick={next} className="w-full py-6 bg-emerald-600 text-white text-xl font-bold rounded-3xl shadow-lg active:scale-95">{t.next}</button>
-
-                    {isLocalSettingsOpen && (
-                        <div className="fixed inset-0 z-[110] bg-black/60 flex items-center justify-center p-4">
-                            <div className="bg-white w-full max-w-sm rounded-[2rem] p-6 shadow-2xl">
-                                <h3 className="text-lg font-bold mb-6 flex items-center gap-2"><i className="fa-solid fa-cog"></i> {t.gameSettings}</h3>
-                                <p className="text-slate-400 text-sm py-8 text-center">この機能は今後のアップデートで追加されます。</p>
-                                <button onClick={() => setIsLocalSettingsOpen(false)} className="w-full mt-4 py-4 bg-slate-900 text-white font-bold rounded-2xl">{t.back}</button>
-                            </div>
-                        </div>
-                    )}
                 </div>
             );
         };
@@ -958,7 +731,6 @@
                 { id: 'number', label: t.number, icon: 'fa-hashtag', color: 'bg-emerald-500', desc: t.descNum },
                 { id: 'letterpair', label: t.letter, icon: 'fa-language', color: 'bg-amber-500', desc: t.descLet }
             ];
-
             return (
                 <div className="h-full flex flex-col p-6 overflow-y-auto no-scrollbar">
                     <div className="flex items-center justify-between mb-8 pt-2">
@@ -994,25 +766,18 @@
                 const saved = localStorage.getItem('global_settings');
                 return saved ? JSON.parse(saved) : { lang: 'ja', theme: 'light' };
             });
-
-            useEffect(() => {
-                localStorage.setItem('global_settings', JSON.stringify(globalSettings));
-            }, [globalSettings]);
-
+            useEffect(() => { localStorage.setItem('global_settings', JSON.stringify(globalSettings)); }, [globalSettings]);
             const t = translations[globalSettings.lang];
-
             return (
                 <main className="w-full h-full flex flex-col relative overflow-hidden bg-slate-50">
                     {mode === 'home' && <HomeView t={t} onSelectMode={setMode} onOpenSettings={() => setIsGlobalSettingsOpen(true)} />}
                     {mode === 'calendar' && <CalendarTrainer t={t} globalSettings={globalSettings} onBack={() => setMode('home')} />}
                     {mode === 'number' && <NumberTrainer t={t} globalSettings={globalSettings} onBack={() => setMode('home')} />}
                     {mode === 'letterpair' && <LetterPairTrainer t={t} globalSettings={globalSettings} onBack={() => setMode('home')} />}
-                    
                     {isGlobalSettingsOpen && <GlobalSettingsModal globalSettings={globalSettings} setGlobalSettings={setGlobalSettings} onClose={() => setIsGlobalSettingsOpen(false)} t={t} />}
                 </main>
             );
         };
-
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
     </script>
