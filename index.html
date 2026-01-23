@@ -118,7 +118,7 @@
                 avgTime: '平均タイム',
                 finalScore: 'スコア',
                 retry: 'もう一度',
-                changeRange: '設定変更',
+                changeRange: '出題範囲変更',
                 gameSettings: '設定',
                 countdown: '開始カウント',
                 showNums: 'ボタン番号',
@@ -178,7 +178,7 @@
                 avgTime: 'Avg',
                 finalScore: 'Score',
                 retry: 'Retry',
-                changeRange: 'Settings',
+                changeRange: 'Change Range',
                 gameSettings: 'Settings',
                 countdown: 'Countdown',
                 showNums: 'Index',
@@ -216,15 +216,90 @@
 
         // --- Components ---
 
+        const GlobalSettingsModal = ({ globalSettings, setGlobalSettings, onClose, t }) => {
+            if (!t) return null; // Safety check
+
+            const handleReset = () => { if (window.confirm(t.resetConfirm)) { localStorage.clear(); window.location.reload(); } };
+            const handleExport = () => {
+                const data = {
+                    calendar_history: localStorage.getItem('calendar_history'),
+                    calendar_records: localStorage.getItem('calendar_records'), 
+                    memory_pro_numbers: localStorage.getItem('memory_pro_numbers'),
+                    memory_pro_letters: localStorage.getItem('memory_pro_letters'),
+                    calendar_settings: localStorage.getItem('calendar_settings'),
+                    number_settings: localStorage.getItem('number_settings'),
+                    global_settings: JSON.stringify(globalSettings)
+                };
+                const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `memorypro_backup_${new Date().toISOString().split('T')[0]}.json`;
+                a.click();
+            };
+            const handleImport = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const data = JSON.parse(event.target.result);
+                        if (data.calendar_history) localStorage.setItem('calendar_history', data.calendar_history);
+                        if (data.calendar_records) localStorage.setItem('calendar_records', data.calendar_records);
+                        if (data.memory_pro_numbers) localStorage.setItem('memory_pro_numbers', data.memory_pro_numbers);
+                        if (data.memory_pro_letters) localStorage.setItem('memory_pro_letters', data.memory_pro_letters);
+                        if (data.calendar_settings) localStorage.setItem('calendar_settings', data.calendar_settings);
+                        if (data.number_settings) localStorage.setItem('number_settings', data.number_settings);
+                        if (data.global_settings) setGlobalSettings(JSON.parse(data.global_settings));
+                        alert('インポート完了。'); window.location.reload();
+                    } catch (err) { alert('不正なファイル形式です。'); }
+                };
+                reader.readAsText(file);
+            };
+
+            return (
+                <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center">
+                    <div className="bg-white w-full max-w-lg rounded-t-[2rem] sm:rounded-[2rem] shadow-2xl p-6 overflow-y-auto max-h-[85vh] no-scrollbar">
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-xl font-bold flex items-center gap-2">
+                                <i className="fa-solid fa-sliders text-indigo-600"></i> {t.settings}
+                            </h2>
+                            <button onClick={onClose} className="w-8 h-8 flex items-center justify-center bg-slate-100 rounded-full text-slate-500 hover:bg-slate-200 transition-colors"><i className="fa-solid fa-xmark"></i></button>
+                        </div>
+                        <div className="space-y-6">
+                            <section>
+                                <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">{t.lang}</label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {['ja', 'en'].map(l => (
+                                        <button key={l} onClick={() => setGlobalSettings(s => ({...s, lang: l}))} className={`py-3 rounded-xl border-2 font-bold text-sm transition-all ${globalSettings.lang === l ? 'bg-indigo-50 border-indigo-600 text-indigo-600' : 'border-slate-100 text-slate-400 hover:border-slate-200'}`}>
+                                            {l === 'ja' ? '日本語' : 'English'}
+                                        </button>
+                                    ))}
+                                </div>
+                            </section>
+                            <section>
+                                <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">{t.backup}</label>
+                                <div className="space-y-2">
+                                    <button onClick={handleExport} className="w-full py-4 bg-slate-50 hover:bg-slate-100 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-colors"><i className="fa-solid fa-download"></i> {t.export}</button>
+                                    <label className="w-full py-4 bg-slate-50 hover:bg-slate-100 rounded-xl font-bold text-sm flex items-center justify-center gap-2 cursor-pointer transition-colors"><i className="fa-solid fa-upload"></i> {t.import}<input type="file" accept=".json" onChange={handleImport} className="hidden" /></label>
+                                    <button onClick={handleReset} className="w-full py-4 bg-red-50 text-red-500 rounded-xl font-bold text-sm border border-red-100 flex items-center justify-center gap-2 hover:bg-red-100 transition-colors">{t.reset}</button>
+                                </div>
+                            </section>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
         const TrendGraph = ({ records, timerFormat, t }) => {
             if (!records || records.length === 0) return <div className="text-center text-slate-400 py-10 text-sm font-bold bg-slate-50 rounded-xl">{t.noData}</div>;
 
             const sortedRecords = [...records].sort((a, b) => a.timestamp - b.timestamp);
             const scores = sortedRecords.map(r => r.finalScore);
             
-            const min = Math.min(...scores);
+            const min = 0; // Fixed at 0 as requested
             const max = Math.max(...scores);
-            const range = max - min || 1;
+            const range = max || 1;
             
             const width = 300;
             const height = 180;
@@ -233,29 +308,32 @@
             const points = scores.map((s, i) => {
                 const x = padding + (i / (scores.length - 1 || 1)) * (width - padding * 2);
                 const normalized = (s - min) / range; 
-                const y = padding + normalized * (height - padding * 2);
+                const y = height - (padding + normalized * (height - padding * 2)); // Invert Y for correct orientation (SVG 0 is top)
                 return `${x},${y}`;
             }).join(' ');
 
             return (
                 <div className="w-full flex flex-col items-center">
                     <svg width="100%" viewBox={`0 0 ${width} ${height}`} className="overflow-visible font-mono text-[8px] text-slate-400">
+                        {/* Grid lines */}
                         <line x1={padding} y1={padding} x2={width-padding} y2={padding} stroke="#f1f5f9" strokeWidth="1" />
-                        <text x={padding - 5} y={padding + 3} textAnchor="end">{formatTime(min, timerFormat)}</text>
+                        <text x={padding - 5} y={padding + 3} textAnchor="end">{formatTime(max, timerFormat)}</text>
                         
                         <line x1={padding} y1={height-padding} x2={width-padding} y2={height-padding} stroke="#f1f5f9" strokeWidth="1" />
-                        <text x={padding - 5} y={height - padding + 3} textAnchor="end">{formatTime(max, timerFormat)}</text>
+                        <text x={padding - 5} y={height - padding + 3} textAnchor="end">{formatTime(min, timerFormat)}</text>
                         
                         <line x1={padding} y1={padding} x2={padding} y2={height-padding} stroke="#e2e8f0" strokeWidth="1" />
                         <line x1={padding} y1={height-padding} x2={width-padding} y2={height-padding} stroke="#e2e8f0" strokeWidth="1" />
 
+                        {/* Data line */}
                         <polyline fill="none" stroke="#6366f1" strokeWidth="2" points={points} strokeLinejoin="round" />
                         
+                        {/* Data points */}
                         {sortedRecords.map((r, i) => {
                              const s = r.finalScore;
                              const normalized = (s - min) / range;
                              const x = padding + (i / (scores.length - 1 || 1)) * (width - padding * 2);
-                             const y = padding + normalized * (height - padding * 2);
+                             const y = height - (padding + normalized * (height - padding * 2));
                              
                              return (
                                 <g key={i}>
@@ -374,7 +452,7 @@
                         localStorage.setItem('calendar_history', JSON.stringify(history.slice(0, 100)));
                         setCurrentResult(session);
                         setGameState('finished');
-                        // Celebration
+                        
                         const records = JSON.parse(localStorage.getItem('calendar_records') || '[]');
                         const filtered = records.filter(r => r.range === selectedRange);
                         if (filtered.length === 0 || session.finalScore <= Math.min(...filtered.map(r => r.finalScore))) {
@@ -409,6 +487,12 @@
                 }
             };
 
+            const handleRetryCheck = (action) => {
+                if (!isRegistered && gameState === 'finished') {
+                    if (window.confirm(t.confirmDiscard)) action();
+                } else action();
+            };
+
             const formatDate = (date) => {
                 const y = date.getFullYear(), m = date.getMonth() + 1, d = date.getDate(), era = getJapaneseEra(date);
                 if (settings.yearMode === 'japanese') return `${era} ${m}月${d}日`;
@@ -432,24 +516,24 @@
                 return (
                     <div className="h-full flex flex-col p-4 overflow-y-auto no-scrollbar">
                         <div className="flex justify-between items-center mb-6">
-                            <button onClick={handleHomeClick} className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-slate-500 shadow-sm"><i className="fa-solid fa-house"></i></button>
+                            <button onClick={handleHomeClick} className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-slate-500 shadow-sm hover:text-indigo-600 transition-colors"><i className="fa-solid fa-house"></i></button>
                             <h2 className="text-lg font-bold text-slate-800">{t.calendar}</h2>
-                            <button onClick={() => setIsLocalSettingsOpen(true)} className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-slate-500 shadow-sm"><i className="fa-solid fa-cog"></i></button>
+                            <button onClick={() => setIsLocalSettingsOpen(true)} className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-slate-500 shadow-sm hover:text-indigo-600 transition-colors"><i className="fa-solid fa-cog"></i></button>
                         </div>
                         <div className="flex-grow flex flex-col items-center justify-center text-center -mt-6">
                             <div className="mb-6 p-6 bg-indigo-50 rounded-full text-indigo-600 shadow-inner"><i className="fa-solid fa-calendar-days text-5xl"></i></div>
-                            <p className="text-slate-500 text-xs mb-8">{t.penaltyText}</p>
+                            <p className="text-slate-500 text-xs mb-8 font-bold">{t.penaltyText}</p>
                             <div className="w-full space-y-3 max-w-sm mb-10">
                                 {[{id:'recent',label:t.recent,desc:t.ja?'去年〜来年':'Last-Next Year',icon:'fa-clock'}, {id:'birthday',label:t.birthday,desc:t.ja?'過去80年':'Past 80Y',icon:'fa-cake-candles'}, {id:'competition',label:t.competition,desc:'1500-2500',icon:'fa-trophy'}].map(r => (
-                                    <div key={r.id} className="relative group">
-                                        <button onClick={() => startCountdown(r.id)} className="w-full flex items-center p-4 bg-white border border-slate-100 rounded-2xl shadow-sm active:scale-95 transition-all pr-12">
-                                            <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 mr-4"><i className={`fa-solid ${r.icon}`}></i></div>
-                                            <div className="text-left">
+                                    <div key={r.id} className="relative">
+                                        <button onClick={() => startCountdown(r.id)} className="w-full flex items-center p-4 bg-white border border-slate-100 rounded-2xl shadow-sm active:scale-95 transition-all pr-12 text-left">
+                                            <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 mr-4 transition-colors group-hover:bg-indigo-50 group-hover:text-indigo-500"><i className={`fa-solid ${r.icon}`}></i></div>
+                                            <div>
                                                 <div className="font-bold text-slate-800">{r.label}</div>
-                                                <div className="text-[10px] font-bold text-slate-400">{r.desc}</div>
+                                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{r.desc}</div>
                                             </div>
                                         </button>
-                                        <button onClick={() => { setSelectedRange(r.id); setIsGraphOpen(true); }} className="absolute right-4 top-1/2 -translate-y-1/2 text-indigo-400 p-2 hover:text-indigo-600">
+                                        <button onClick={() => { setSelectedRange(r.id); setIsGraphOpen(true); }} className="absolute right-4 top-1/2 -translate-y-1/2 text-indigo-400 p-2 hover:text-indigo-600 transition-colors">
                                             <i className="fa-solid fa-chart-line"></i>
                                         </button>
                                     </div>
@@ -458,40 +542,40 @@
                         </div>
 
                         {isLocalSettingsOpen && (
-                            <div className="fixed inset-0 z-[110] bg-black/60 flex items-center justify-center p-4">
+                            <div className="fixed inset-0 z-[110] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm">
                                 <div className="bg-white w-full max-w-sm rounded-[2rem] p-6 shadow-2xl overflow-y-auto max-h-[80vh] no-scrollbar">
-                                    <h3 className="text-lg font-bold mb-6 flex items-center gap-2"><i className="fa-solid fa-cog"></i> {t.gameSettings}</h3>
+                                    <h3 className="text-lg font-bold mb-6 flex items-center gap-2 text-slate-800"><i className="fa-solid fa-cog text-indigo-500"></i> {t.gameSettings}</h3>
                                     <div className="space-y-5">
                                         <section>
-                                            <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">{t.countdown}</label>
+                                            <label className="text-xs font-bold text-slate-400 uppercase mb-2 block tracking-widest">{t.countdown}</label>
                                             <div className="grid grid-cols-3 gap-2">
                                                 {[3, 5, 10].map(s => (
-                                                    <button key={s} onClick={() => updateLocalSettings('countdownSeconds', s)} className={`py-2.5 rounded-xl border-2 font-bold text-sm ${settings.countdownSeconds === s ? 'bg-indigo-50 border-indigo-600 text-indigo-600' : 'border-slate-100'}`}>{s}{t.sec}</button>
+                                                    <button key={s} onClick={() => updateLocalSettings('countdownSeconds', s)} className={`py-2.5 rounded-xl border-2 font-bold text-sm transition-all ${settings.countdownSeconds === s ? 'bg-indigo-50 border-indigo-600 text-indigo-600' : 'border-slate-50 bg-slate-50 text-slate-400'}`}>{s}{t.sec}</button>
                                                 ))}
                                             </div>
                                         </section>
                                         <section>
-                                            <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">{t.yearMode}</label>
+                                            <label className="text-xs font-bold text-slate-400 uppercase mb-2 block tracking-widest">{t.yearMode}</label>
                                             <div className="grid grid-cols-3 gap-2">
                                                 {['western', 'japanese', 'both'].map(m => (
-                                                    <button key={m} onClick={() => updateLocalSettings('yearMode', m)} className={`py-2.5 rounded-xl border-2 font-bold text-xs ${settings.yearMode === m ? 'bg-indigo-50 border-indigo-600 text-indigo-600' : 'border-slate-100'}`}>{m === 'japanese' ? t.era : t[m] || m}</button>
+                                                    <button key={m} onClick={() => updateLocalSettings('yearMode', m)} className={`py-2.5 rounded-xl border-2 font-bold text-xs transition-all ${settings.yearMode === m ? 'bg-indigo-50 border-indigo-600 text-indigo-600' : 'border-slate-50 bg-slate-50 text-slate-400'}`}>{m === 'japanese' ? t.era : t[m] || m}</button>
                                                 ))}
                                             </div>
                                         </section>
                                         <section>
-                                            <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">{t.timerFormat}</label>
+                                            <label className="text-xs font-bold text-slate-400 uppercase mb-2 block tracking-widest">{t.timerFormat}</label>
                                             <div className="grid grid-cols-2 gap-2">
                                                 {['mm:ss', 'ss'].map(f => (
-                                                    <button key={f} onClick={() => updateLocalSettings('timerFormat', f)} className={`py-2.5 rounded-xl border-2 font-bold text-xs ${settings.timerFormat === f ? 'bg-indigo-50 border-indigo-600 text-indigo-600' : 'border-slate-100'}`}>{f === 'mm:ss' ? t.minSec : t.onlySec}</button>
+                                                    <button key={f} onClick={() => updateLocalSettings('timerFormat', f)} className={`py-2.5 rounded-xl border-2 font-bold text-xs transition-all ${settings.timerFormat === f ? 'bg-indigo-50 border-indigo-600 text-indigo-600' : 'border-slate-50 bg-slate-50 text-slate-400'}`}>{f === 'mm:ss' ? t.minSec : t.onlySec}</button>
                                                 ))}
                                             </div>
                                         </section>
                                         <section>
-                                            <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">{t.showNums}</label>
-                                            <button onClick={() => updateLocalSettings('showNumbers', !settings.showNumbers)} className={`w-full py-3 rounded-xl border-2 font-bold text-sm ${settings.showNumbers ? 'bg-indigo-50 border-indigo-600 text-indigo-600' : 'border-slate-100 text-slate-400'}`}>{settings.showNumbers ? 'ON' : 'OFF'}</button>
+                                            <label className="text-xs font-bold text-slate-400 uppercase mb-2 block tracking-widest">{t.showNums}</label>
+                                            <button onClick={() => updateLocalSettings('showNumbers', !settings.showNumbers)} className={`w-full py-3 rounded-xl border-2 font-bold text-sm transition-all ${settings.showNumbers ? 'bg-indigo-50 border-indigo-600 text-indigo-600' : 'border-slate-50 bg-slate-50 text-slate-400'}`}>{settings.showNumbers ? 'ON' : 'OFF'}</button>
                                         </section>
                                     </div>
-                                    <button onClick={() => setIsLocalSettingsOpen(false)} className="w-full mt-8 py-4 bg-slate-900 text-white font-bold rounded-2xl">{t.back}</button>
+                                    <button onClick={() => setIsLocalSettingsOpen(false)} className="w-full mt-8 py-4 bg-slate-900 text-white font-bold rounded-2xl shadow-lg active:scale-95 transition-all">{t.back}</button>
                                 </div>
                             </div>
                         )}
@@ -522,12 +606,12 @@
                         <div className="flex justify-between items-start mb-2 flex-none">
                             <button onClick={handleHomeClick} className="text-slate-400 hover:text-slate-600 py-2"><i className="fa-solid fa-house"></i></button>
                             <div className="flex flex-col items-center">
-                                <span className="text-5xl font-mono font-black text-slate-800">{formatTime(currentTime - startTime, settings.timerFormat)}</span>
+                                <span className="text-5xl font-mono font-black text-slate-800 tracking-tighter">{formatTime(currentTime - startTime, settings.timerFormat)}</span>
                             </div>
-                            <button onClick={() => startCountdown(selectedRange)} className="text-slate-400 hover:text-slate-600 py-2 text-sm font-bold flex flex-col items-center gap-1"><i className="fa-solid fa-rotate-right"></i> {t.restart}</button>
+                            <button onClick={() => startCountdown(selectedRange)} className="text-slate-400 hover:text-slate-600 py-2 text-sm font-bold flex flex-col items-center gap-1 transition-colors"><i className="fa-solid fa-rotate-right"></i> {t.restart}</button>
                         </div>
                         <div className="text-center mb-4 flex-none">
-                            <span className="text-xs font-bold text-indigo-600 uppercase tracking-widest">{activeQuestion + 1} / 5</span>
+                            <span className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em]">{activeQuestion + 1} / 5</span>
                         </div>
                         <div className="space-y-2 overflow-y-auto no-scrollbar py-2 h-[45vh] flex-none">
                             {questions.map((q, idx) => {
@@ -569,11 +653,14 @@
                 return (
                     <div className="h-full flex flex-col p-4 overflow-y-auto no-scrollbar">
                         <div className="flex justify-between items-center mb-6 pt-2">
-                            <h2 className="text-2xl font-black flex items-center gap-3 text-slate-800"><i className="fa-solid fa-trophy text-amber-500"></i> {t.result}</h2>
-                            <button onClick={handleHomeClick} className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-slate-500 shadow-sm"><i className="fa-solid fa-house"></i></button>
+                            <h2 className="text-2xl font-black flex items-center gap-3 text-slate-800"><i className="fa-solid fa-award text-amber-500"></i> {t.result}</h2>
+                            <div className="flex gap-2">
+                                <button onClick={() => setIsGraphOpen(true)} className="w-10 h-10 flex items-center justify-center bg-indigo-50 rounded-full text-indigo-600 shadow-sm transition-all hover:bg-indigo-100"><i className="fa-solid fa-chart-line"></i></button>
+                                <button onClick={handleHomeClick} className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-slate-500 shadow-sm transition-all hover:text-indigo-600"><i className="fa-solid fa-house"></i></button>
+                            </div>
                         </div>
 
-                        {/* Consolidated Linear Score Card */}
+                        {/* Redesigned Blue Score Card - Linear and Spaced */}
                         <div className="w-full bg-indigo-600 text-white rounded-[2.5rem] p-8 sm:p-10 mb-8 shadow-2xl relative flex flex-col items-center text-center">
                             {isNewRecord && (
                                 <div className="absolute top-0 right-0 bg-yellow-400 text-yellow-900 text-[10px] font-black px-4 py-1.5 rounded-bl-2xl uppercase tracking-widest shadow-md">
@@ -581,38 +668,43 @@
                                 </div>
                             )}
                             
+                            {/* Final Score */}
                             <div className="text-[11px] font-black opacity-60 uppercase tracking-widest mb-1">{t.finalScore}</div>
-                            <div className="text-6xl sm:text-7xl font-mono font-black mb-10 tracking-tighter drop-shadow-lg truncate w-full">
+                            <div className="text-6xl sm:text-7xl font-mono font-black mb-4 tracking-tighter drop-shadow-lg truncate w-full">
                                 {formatTime(currentResult.finalScore, settings.timerFormat)}
                             </div>
 
+                            {/* Best Score (Small Display) */}
+                            <div className="flex items-center gap-2 mb-8 bg-black/10 px-4 py-1.5 rounded-full">
+                                <i className="fa-solid fa-crown text-yellow-400 text-[10px]"></i>
+                                <span className="text-xs font-black tracking-widest uppercase">{t.bestScore}: {best ? formatTime(best, settings.timerFormat) : '-'}</span>
+                            </div>
+
+                            {/* Register Action Button */}
                             <button 
                                 onClick={() => handleRegister(currentResult)} 
                                 disabled={isRegistered} 
-                                className={`w-full py-5 rounded-[2rem] text-lg font-black flex items-center justify-center gap-3 mb-10 transition-all duration-300 ${isRegistered ? 'bg-white/20 text-white/50 cursor-default' : 'bg-white text-indigo-600 hover:scale-105 active:scale-95 shadow-xl'}`}
+                                className={`w-full py-5 rounded-[2rem] text-lg font-black flex items-center justify-center gap-3 mb-10 transition-all duration-300 ${isRegistered ? 'bg-white/20 text-white/50 cursor-default' : 'bg-white text-indigo-600 hover:scale-[1.02] active:scale-[0.98] shadow-xl'}`}
                             >
                                 {isRegistered ? <><i className="fa-solid fa-check-double"></i> {t.registered}</> : <><i className="fa-solid fa-floppy-disk"></i> {t.register}</>}
                             </button>
 
-                            <div className="w-full space-y-6 pt-10 border-t border-white/20">
-                                <div className="flex justify-between items-center w-full">
-                                    <div className="text-left">
-                                        <div className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-0.5">{t.avgTime}</div>
-                                        <div className="font-mono font-black text-2xl">{formatTime(avg, 'ss')}</div>
-                                    </div>
-                                    <div className="text-right">
-                                        <div className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-0.5">{t.bestScore}</div>
-                                        <div className="font-mono font-black text-2xl text-yellow-300">{best ? formatTime(best, settings.timerFormat) : '-'}</div>
-                                    </div>
+                            {/* Detailed Stats Rows */}
+                            <div className="w-full space-y-8 pt-8 border-t border-white/20">
+                                {/* Row 1: Time Only */}
+                                <div className="flex flex-col items-center">
+                                    <div className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-1">{t.rawTime}</div>
+                                    <div className="font-mono font-black text-3xl">{formatTime(currentResult.totalTime, settings.timerFormat)}</div>
                                 </div>
-                                <div className="flex justify-between items-center w-full">
-                                    <div className="text-left">
-                                        <div className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-0.5">{t.penalty}</div>
-                                        <div className={`font-mono font-black text-2xl ${currentResult.penaltySeconds > 0 ? 'text-red-300' : 'text-green-300'}`}>+{currentResult.penaltySeconds}s</div>
+                                {/* Row 2: Average and Penalty */}
+                                <div className="grid grid-cols-2 w-full gap-4">
+                                    <div className="flex flex-col items-center">
+                                        <div className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-1">{t.avgTime}</div>
+                                        <div className="font-mono font-black text-2xl tracking-tight">{formatTime(avg, 'ss')}</div>
                                     </div>
-                                    <div className="text-right">
-                                        <div className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-0.5">{t.rawTime}</div>
-                                        <div className="font-mono font-bold text-xl opacity-80">{formatTime(currentResult.totalTime, settings.timerFormat)}</div>
+                                    <div className="flex flex-col items-center">
+                                        <div className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-1">{t.penalty}</div>
+                                        <div className={`font-mono font-black text-2xl tracking-tight ${currentResult.penaltySeconds > 0 ? 'text-red-300' : 'text-green-300'}`}>+{currentResult.penaltySeconds}s</div>
                                     </div>
                                 </div>
                             </div>
@@ -621,13 +713,13 @@
                         {/* LAP DATA REVIEW */}
                         <div className="mb-10 space-y-4">
                             {currentResult.laps.map((lap, i) => (
-                                <div key={i} className="bg-white rounded-3xl p-5 border border-slate-100 flex items-center justify-between shadow-sm">
+                                <div key={i} className="bg-white rounded-3xl p-5 border border-slate-100 flex items-center justify-between shadow-sm hover:shadow-md transition-shadow">
                                     <div className="flex items-center gap-4">
                                         <div className={`w-8 h-8 rounded-2xl flex items-center justify-center font-black text-xs ${lap.correct ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>{i + 1}</div>
                                         <div className="flex flex-col">
-                                            <span className="text-[10px] text-slate-400 font-black tracking-wider mb-0.5">{lap.date}</span>
+                                            <span className="text-[10px] text-slate-400 font-black tracking-wider mb-0.5 uppercase">{lap.date}</span>
                                             <span className="text-base font-bold text-slate-700">
-                                                {lap.userAnswer} {!lap.correct && <span className="text-red-400 ml-1">→ {lap.correctAnswer}</span>}
+                                                {lap.userAnswer} {!lap.correct && <span className="text-red-400 font-black ml-1">→ {lap.correctAnswer}</span>}
                                             </span>
                                         </div>
                                     </div>
@@ -641,7 +733,7 @@
 
                         {/* Actions */}
                         <div className="space-y-4 pb-12 mt-auto">
-                            <button onClick={() => handleRetryCheck(() => startCountdown(selectedRange))} className="w-full py-6 bg-indigo-600 text-white text-xl font-black rounded-[2rem] shadow-lg active:scale-95 transition-all">
+                            <button onClick={() => handleRetryCheck(() => startCountdown(selectedRange))} className="w-full py-6 bg-indigo-600 text-white text-xl font-black rounded-[2rem] shadow-lg hover:shadow-xl active:scale-95 transition-all">
                                 <i className="fa-solid fa-rotate-right mr-3"></i> {t.retry}
                             </button>
                             <button onClick={() => handleRetryCheck(() => setGameState('idle'))} className="w-full py-6 bg-white border-2 border-slate-100 text-slate-600 text-xl font-black rounded-[2rem] active:scale-95 transition-all">
@@ -683,23 +775,23 @@
             return (
                 <div className="h-full flex flex-col p-4 relative">
                     <div className="flex justify-between items-center mb-6">
-                        <button onClick={onBack} className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-slate-500 shadow-sm"><i className="fa-solid fa-house"></i></button>
+                        <button onClick={onBack} className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-slate-500 shadow-sm hover:text-emerald-600 transition-colors"><i className="fa-solid fa-house"></i></button>
                         <h2 className="text-lg font-bold text-slate-800">{t.number}</h2>
-                        <button onClick={() => setIsLocalSettingsOpen(true)} className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-slate-500 shadow-sm"><i className="fa-solid fa-cog"></i></button>
+                        <div className="w-10 h-10"></div>
                     </div>
                     {gameState === 'idle' ? (
                         <div className="flex-grow flex flex-col items-center justify-center -mt-10">
                             <div className="mb-6 p-6 bg-emerald-50 rounded-full text-emerald-600 shadow-inner"><i className="fa-solid fa-hashtag text-5xl"></i></div>
-                            <button onClick={startCountdown} className="w-full max-w-sm py-5 bg-emerald-600 text-white font-bold rounded-2xl shadow-lg active:scale-95 text-xl">{t.start}</button>
+                            <button onClick={startCountdown} className="w-full max-w-sm py-5 bg-emerald-600 text-white font-bold rounded-2xl shadow-lg active:scale-95 text-xl transition-all hover:bg-emerald-700">{t.start}</button>
                         </div>
                     ) : (
                         <div className="flex-grow flex flex-col items-center justify-center py-4">
-                            <div className="text-6xl sm:text-8xl font-mono font-black text-emerald-600 text-center break-all">{currentValue}</div>
-                            <div className="mt-20 w-full max-w-sm">
-                                <div className="flex flex-wrap justify-center gap-2 mb-8 h-10">
+                            <div className="text-6xl sm:text-8xl font-mono font-black text-emerald-600 text-center break-all tracking-tighter">{currentValue}</div>
+                            <div className="mt-20 w-full max-w-sm px-4">
+                                <div className="flex flex-wrap justify-center gap-2 mb-8 h-10 overflow-hidden">
                                     {history.map((h, i) => <span key={i} className="px-2 py-1 bg-white text-slate-400 font-mono text-xs font-bold rounded-lg border border-slate-100">{h}</span>)}
                                 </div>
-                                <button onClick={next} className="w-full py-6 bg-emerald-600 text-white text-2xl font-black rounded-[2rem] shadow-xl active:scale-95">{t.next}</button>
+                                <button onClick={next} className="w-full py-6 bg-emerald-600 text-white text-2xl font-black rounded-[2rem] shadow-xl active:scale-95 transition-all hover:bg-emerald-700">{t.next}</button>
                             </div>
                         </div>
                     )}
@@ -713,13 +805,13 @@
             return (
                 <div className="h-full flex flex-col p-4">
                     <div className="flex justify-between items-center mb-10">
-                        <button onClick={onBack} className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-slate-500 shadow-sm"><i className="fa-solid fa-house"></i></button>
+                        <button onClick={onBack} className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-slate-500 shadow-sm hover:text-amber-600 transition-colors"><i className="fa-solid fa-house"></i></button>
                         <h2 className="text-lg font-bold text-slate-800">{t.letter}</h2>
                         <div className="w-10 h-10"></div>
                     </div>
                     <div className="flex-grow flex flex-col items-center justify-center -mt-10">
-                        <div className="text-8xl font-black text-emerald-600 tracking-widest text-center mb-16">{currentValue}</div>
-                        <button onClick={() => setCurrentValue(gen())} className="w-full max-w-sm py-6 bg-emerald-600 text-white text-2xl font-black rounded-[2rem] shadow-xl active:scale-95">{t.next}</button>
+                        <div className="text-8xl font-black text-amber-600 tracking-widest text-center mb-16">{currentValue}</div>
+                        <button onClick={() => setCurrentValue(gen())} className="w-full max-w-sm py-6 bg-amber-600 text-white text-2xl font-black rounded-[2rem] shadow-xl active:scale-95 transition-all hover:bg-amber-700">{t.next}</button>
                     </div>
                 </div>
             );
@@ -733,25 +825,25 @@
             ];
             return (
                 <div className="h-full flex flex-col p-6 overflow-y-auto no-scrollbar">
-                    <div className="flex items-center justify-between mb-8 pt-2">
+                    <div className="flex items-center justify-between mb-12 pt-2">
                         <div className="flex items-center gap-3">
                             <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-lg"><i className="fa-solid fa-brain text-xl"></i></div>
                             <div>
                                 <h1 className="text-xl font-black tracking-tight text-slate-800">{t.appTitle}</h1>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t.trainingType}</p>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-tight">{t.trainingType}</p>
                             </div>
                         </div>
-                        <button onClick={onOpenSettings} className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-slate-400 hover:text-indigo-600 shadow-sm border border-slate-100"><i className="fa-solid fa-gear"></i></button>
+                        <button onClick={onOpenSettings} className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-slate-400 hover:text-indigo-600 shadow-sm border border-slate-100 transition-all"><i className="fa-solid fa-gear"></i></button>
                     </div>
-                    <div className="space-y-4">
+                    <div className="space-y-5">
                         {modes.map(m => (
-                            <button key={m.id} onClick={() => onSelectMode(m.id)} className="w-full bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm active:scale-95 transition-all flex items-center text-left">
+                            <button key={m.id} onClick={() => onSelectMode(m.id)} className="w-full bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm active:scale-95 transition-all flex items-center text-left hover:shadow-md">
                                 <div className={`w-14 h-14 ${m.color} rounded-2xl flex items-center justify-center text-white shadow-md mr-5`}><i className={`fa-solid ${m.icon} text-xl`}></i></div>
                                 <div className="flex-grow">
-                                    <div className="font-bold text-lg mb-0.5 text-slate-800">{m.label}</div>
-                                    <div className="text-xs text-slate-400 font-bold">{m.desc}</div>
+                                    <div className="font-black text-lg mb-0.5 text-slate-800">{m.label}</div>
+                                    <div className="text-xs text-slate-400 font-bold tracking-tight">{m.desc}</div>
                                 </div>
-                                <i className="fa-solid fa-chevron-right text-slate-300"></i>
+                                <i className="fa-solid fa-chevron-right text-slate-300 ml-2"></i>
                             </button>
                         ))}
                     </div>
@@ -763,18 +855,41 @@
             const [mode, setMode] = useState('home');
             const [isGlobalSettingsOpen, setIsGlobalSettingsOpen] = useState(false);
             const [globalSettings, setGlobalSettings] = useState(() => {
-                const saved = localStorage.getItem('global_settings');
-                return saved ? JSON.parse(saved) : { lang: 'ja', theme: 'light' };
+                try {
+                    const saved = localStorage.getItem('global_settings');
+                    return saved ? JSON.parse(saved) : { lang: 'ja', theme: 'light' };
+                } catch(e) {
+                    return { lang: 'ja', theme: 'light' };
+                }
             });
-            useEffect(() => { localStorage.setItem('global_settings', JSON.stringify(globalSettings)); }, [globalSettings]);
-            const t = translations[globalSettings.lang];
+            
+            useEffect(() => { 
+                localStorage.setItem('global_settings', JSON.stringify(globalSettings)); 
+            }, [globalSettings]);
+            
+            const t = translations[globalSettings.lang] || translations.ja;
+
             return (
                 <main className="w-full h-full flex flex-col relative overflow-hidden bg-slate-50">
-                    {mode === 'home' && <HomeView t={t} onSelectMode={setMode} onOpenSettings={() => setIsGlobalSettingsOpen(true)} />}
+                    {mode === 'home' && (
+                        <HomeView 
+                            t={t} 
+                            onSelectMode={setMode} 
+                            onOpenSettings={() => setIsGlobalSettingsOpen(true)} 
+                        />
+                    )}
                     {mode === 'calendar' && <CalendarTrainer t={t} globalSettings={globalSettings} onBack={() => setMode('home')} />}
                     {mode === 'number' && <NumberTrainer t={t} globalSettings={globalSettings} onBack={() => setMode('home')} />}
                     {mode === 'letterpair' && <LetterPairTrainer t={t} globalSettings={globalSettings} onBack={() => setMode('home')} />}
-                    {isGlobalSettingsOpen && <GlobalSettingsModal globalSettings={globalSettings} setGlobalSettings={setGlobalSettings} onClose={() => setIsGlobalSettingsOpen(false)} t={t} />}
+                    
+                    {isGlobalSettingsOpen && (
+                        <GlobalSettingsModal 
+                            globalSettings={globalSettings} 
+                            setGlobalSettings={setGlobalSettings} 
+                            onClose={() => setIsGlobalSettingsOpen(false)} 
+                            t={t} 
+                        />
+                    )}
                 </main>
             );
         };
