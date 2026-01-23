@@ -141,16 +141,15 @@
                 birthday: '誕生日',
                 competition: '競技',
                 restart: 'やり直す',
-                register: '記録を登録',
-                registered: '登録済み',
                 bestScore: '最高記録',
                 newRecord: '自己ベスト更新！',
-                graph: '推移グラフ',
-                confirmDiscard: '記録が登録されていません。破棄してもよろしいですか？',
+                historyMenu: '履歴',
                 confirmQuit: '進行中のデータは破棄されます。よろしいですか？',
                 noData: 'データがありません',
                 sec: '秒',
-                lap: 'ラップ'
+                lap: 'ラップ',
+                mode: '出題範囲',
+                accuracy: '正解数'
             },
             en: {
                 appTitle: 'MemoryPro',
@@ -199,26 +198,24 @@
                 descLet: 'Convert letters to images',
                 recent: 'Recent',
                 birthday: 'Birthday',
-                competition: 'Pro',
+                competition: 'Competition',
                 restart: 'Restart',
-                register: 'Register',
-                registered: 'Registered',
                 bestScore: 'Best',
                 newRecord: 'New Best!',
-                graph: 'Graph',
-                confirmDiscard: 'Discard record?',
+                historyMenu: 'History',
                 confirmQuit: 'Data will be lost. Quit?',
                 noData: 'No Data',
                 sec: 's',
-                lap: 'Lap'
+                lap: 'Lap',
+                mode: 'Mode',
+                accuracy: 'Accuracy'
             }
         };
 
         // --- Components ---
 
         const GlobalSettingsModal = ({ globalSettings, setGlobalSettings, onClose, t }) => {
-            if (!t) return null; // Safety check
-
+            if (!t) return null;
             const handleReset = () => { if (window.confirm(t.resetConfirm)) { localStorage.clear(); window.location.reload(); } };
             const handleExport = () => {
                 const data = {
@@ -291,57 +288,74 @@
             );
         };
 
-        const TrendGraph = ({ records, timerFormat, t }) => {
-            if (!records || records.length === 0) return <div className="text-center text-slate-400 py-10 text-sm font-bold bg-slate-50 rounded-xl">{t.noData}</div>;
+        const HistoryModal = ({ history, range, onClose, t, formatTime }) => {
+            const [expandedId, setExpandedId] = useState(null);
+            const filtered = history.filter(h => h.range === range);
+            const top10 = filtered.slice(0, 10);
 
-            const sortedRecords = [...records].sort((a, b) => a.timestamp - b.timestamp);
-            const scores = sortedRecords.map(r => r.finalScore);
-            
-            const min = 0; // Fixed at 0 as requested
-            const max = Math.max(...scores);
-            const range = max || 1;
-            
-            const width = 300;
-            const height = 180;
-            const padding = 30;
-
-            const points = scores.map((s, i) => {
-                const x = padding + (i / (scores.length - 1 || 1)) * (width - padding * 2);
-                const normalized = (s - min) / range; 
-                const y = height - (padding + normalized * (height - padding * 2)); // Invert Y for correct orientation (SVG 0 is top)
-                return `${x},${y}`;
-            }).join(' ');
+            const toggle = (id) => setExpandedId(expandedId === id ? null : id);
 
             return (
-                <div className="w-full flex flex-col items-center">
-                    <svg width="100%" viewBox={`0 0 ${width} ${height}`} className="overflow-visible font-mono text-[8px] text-slate-400">
-                        {/* Grid lines */}
-                        <line x1={padding} y1={padding} x2={width-padding} y2={padding} stroke="#f1f5f9" strokeWidth="1" />
-                        <text x={padding - 5} y={padding + 3} textAnchor="end">{formatTime(max, timerFormat)}</text>
-                        
-                        <line x1={padding} y1={height-padding} x2={width-padding} y2={height-padding} stroke="#f1f5f9" strokeWidth="1" />
-                        <text x={padding - 5} y={height - padding + 3} textAnchor="end">{formatTime(min, timerFormat)}</text>
-                        
-                        <line x1={padding} y1={padding} x2={padding} y2={height-padding} stroke="#e2e8f0" strokeWidth="1" />
-                        <line x1={padding} y1={height-padding} x2={width-padding} y2={height-padding} stroke="#e2e8f0" strokeWidth="1" />
-
-                        {/* Data line */}
-                        <polyline fill="none" stroke="#6366f1" strokeWidth="2" points={points} strokeLinejoin="round" />
-                        
-                        {/* Data points */}
-                        {sortedRecords.map((r, i) => {
-                             const s = r.finalScore;
-                             const normalized = (s - min) / range;
-                             const x = padding + (i / (scores.length - 1 || 1)) * (width - padding * 2);
-                             const y = height - (padding + normalized * (height - padding * 2));
-                             
-                             return (
-                                <g key={i}>
-                                    <circle cx={x} cy={y} r="3" fill="#4f46e5" stroke="white" strokeWidth="1" />
-                                </g>
-                             );
-                        })}
-                    </svg>
+                <div className="fixed inset-0 z-[120] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+                     <div className="bg-white w-full max-w-sm rounded-[2rem] p-6 shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+                        <div className="flex justify-between items-center mb-6 flex-none">
+                            <h3 className="text-xl font-bold flex items-center gap-2 text-slate-800">
+                                <i className="fa-solid fa-clock-rotate-left text-indigo-500"></i> {t.historyMenu} 
+                                <span className="text-[10px] bg-indigo-50 px-3 py-1 rounded-full text-indigo-600 font-black uppercase tracking-widest ml-1">{t[range] || range}</span>
+                            </h3>
+                            <button onClick={onClose} className="w-8 h-8 flex items-center justify-center bg-slate-100 rounded-full text-slate-500 hover:bg-slate-200 transition-colors"><i className="fa-solid fa-xmark"></i></button>
+                        </div>
+                        <div className="overflow-y-auto no-scrollbar space-y-3 flex-grow">
+                            {top10.length === 0 && <div className="text-center text-slate-400 py-4 font-bold">{t.noData}</div>}
+                            {top10.map((h, i) => {
+                                const correctCount = h.laps.filter(l => l.correct).length;
+                                const isExpanded = expandedId === i;
+                                
+                                return (
+                                    <div key={i} className={`p-4 rounded-xl border transition-all cursor-pointer ${isExpanded ? 'bg-indigo-50 border-indigo-200 shadow-sm' : 'bg-slate-50 border-slate-100 hover:bg-slate-100'}`} onClick={() => toggle(i)}>
+                                        <div className="flex justify-between items-center">
+                                            <div className="text-xs font-bold text-slate-500">
+                                                {new Date(h.timestamp).toLocaleString(undefined, {month:'numeric', day:'numeric', hour:'numeric', minute:'numeric'})}
+                                            </div>
+                                            <div className="font-mono font-black text-slate-800 text-lg">
+                                                {formatTime(h.finalScore, h.settings?.timerFormat || 'mm:ss')}
+                                                <i className={`fa-solid fa-chevron-down ml-3 text-xs text-slate-300 transition-transform ${isExpanded ? 'rotate-180 text-indigo-500' : ''}`}></i>
+                                            </div>
+                                        </div>
+                                        
+                                        {isExpanded && (
+                                            <div className="mt-4 pt-4 border-t border-indigo-100 space-y-3">
+                                                <div className="flex justify-between text-xs font-bold">
+                                                    <span className="text-slate-400 uppercase">{t.accuracy}</span>
+                                                    <span className="text-indigo-600">{correctCount} / 5</span>
+                                                </div>
+                                                <div className="flex justify-between text-xs font-bold">
+                                                    <span className="text-slate-400 uppercase">{t.penalty}</span>
+                                                    <span className={h.penaltySeconds > 0 ? 'text-red-500' : 'text-green-500'}>+{h.penaltySeconds}s</span>
+                                                </div>
+                                                <div className="pt-2 space-y-2">
+                                                    {h.laps.map((lap, lIdx) => (
+                                                        <div key={lIdx} className="flex justify-between items-center text-[10px] bg-white p-2 rounded-lg border border-indigo-100">
+                                                            <div className="flex gap-2">
+                                                                <span className="font-black text-indigo-300 w-3">{lIdx+1}</span>
+                                                                <span className="font-bold text-slate-600">{lap.date}</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="font-mono text-slate-400">{formatTime(lap.duration, 'ss')}</span>
+                                                                {lap.correct 
+                                                                    ? <i className="fa-solid fa-check text-green-500"></i> 
+                                                                    : <i className="fa-solid fa-xmark text-red-400"></i>}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                     </div>
                 </div>
             );
         };
@@ -349,7 +363,7 @@
         const CalendarTrainer = ({ onBack, globalSettings, t }) => {
             const [gameState, setGameState] = useState('idle');
             const [isLocalSettingsOpen, setIsLocalSettingsOpen] = useState(false);
-            const [isGraphOpen, setIsGraphOpen] = useState(false);
+            const [isHistoryOpen, setIsHistoryOpen] = useState(false);
             const [selectedRange, setSelectedRange] = useState('recent');
             const [activeQuestion, setActiveQuestion] = useState(0);
             const [questions, setQuestions] = useState([]);
@@ -363,7 +377,7 @@
                 return saved ? JSON.parse(saved) : { yearMode: 'western', countdownSeconds: 3, showNumbers: true, startDay: 0, timerFormat: 'mm:ss' };
             });
             const [currentSessionId, setCurrentSessionId] = useState(null);
-            const [isRegistered, setIsRegistered] = useState(false);
+            const [isNewRecord, setIsNewRecord] = useState(false);
             const [currentResult, setCurrentResult] = useState(null);
 
             const timerRef = useRef(null);
@@ -395,7 +409,7 @@
 
             const startCountdown = (range) => {
                 setSelectedRange(range); setLaps([]); setFeedback(null); setGameState('countdown');
-                setIsRegistered(false); setCurrentResult(null); setCurrentSessionId(generateId());
+                setIsNewRecord(false); setCurrentResult(null); setCurrentSessionId(generateId());
                 setQuestions(Array.from({ length: 5 }, () => generateRandomDate(range)));
                 let count = settings.countdownSeconds;
                 setCountdownText(count.toString());
@@ -447,27 +461,36 @@
                             laps: [...laps, record], 
                             settings 
                         };
+                        
+                        // Save History
                         const history = JSON.parse(localStorage.getItem('calendar_history') || '[]');
                         history.unshift(session);
                         localStorage.setItem('calendar_history', JSON.stringify(history.slice(0, 100)));
-                        setCurrentResult(session);
-                        setGameState('finished');
                         
+                        // Auto Update Best Record
                         const records = JSON.parse(localStorage.getItem('calendar_records') || '[]');
-                        const filtered = records.filter(r => r.range === selectedRange);
-                        if (filtered.length === 0 || session.finalScore <= Math.min(...filtered.map(r => r.finalScore))) {
+                        const existingIndex = records.findIndex(r => r.range === selectedRange);
+                        let newBest = false;
+                        if (existingIndex >= 0) {
+                            if (session.finalScore < records[existingIndex].finalScore) {
+                                records[existingIndex] = session;
+                                newBest = true;
+                            }
+                        } else {
+                            records.push(session);
+                            newBest = true;
+                        }
+
+                        if (newBest) {
+                            localStorage.setItem('calendar_records', JSON.stringify(records));
+                            setIsNewRecord(true);
                             confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
                         }
+
+                        setCurrentResult(session);
+                        setGameState('finished');
                     }
                 }, 300);
-            };
-
-            const handleRegister = (session) => {
-                if (isRegistered) return;
-                const records = JSON.parse(localStorage.getItem('calendar_records') || '[]');
-                records.push(session);
-                localStorage.setItem('calendar_records', JSON.stringify(records));
-                setIsRegistered(true);
             };
 
             const getBestScore = (range) => {
@@ -480,17 +503,9 @@
             const handleHomeClick = () => {
                 if (gameState === 'playing' || gameState === 'countdown') {
                     if (window.confirm(t.confirmQuit)) onBack();
-                } else if (gameState === 'finished' && !isRegistered) {
-                    if (window.confirm(t.confirmDiscard)) onBack();
                 } else {
                     onBack();
                 }
-            };
-
-            const handleRetryCheck = (action) => {
-                if (!isRegistered && gameState === 'finished') {
-                    if (window.confirm(t.confirmDiscard)) action();
-                } else action();
             };
 
             const formatDate = (date) => {
@@ -524,17 +539,17 @@
                             <div className="mb-6 p-6 bg-indigo-50 rounded-full text-indigo-600 shadow-inner"><i className="fa-solid fa-calendar-days text-5xl"></i></div>
                             <p className="text-slate-500 text-xs mb-8 font-bold">{t.penaltyText}</p>
                             <div className="w-full space-y-3 max-w-sm mb-10">
-                                {[{id:'recent',label:t.recent,desc:t.ja?'去年〜来年':'Last-Next Year',icon:'fa-clock'}, {id:'birthday',label:t.birthday,desc:t.ja?'過去80年':'Past 80Y',icon:'fa-cake-candles'}, {id:'competition',label:t.competition,desc:'1500-2500',icon:'fa-trophy'}].map(r => (
-                                    <div key={r.id} className="relative">
-                                        <button onClick={() => startCountdown(r.id)} className="w-full flex items-center p-4 bg-white border border-slate-100 rounded-2xl shadow-sm active:scale-95 transition-all pr-12 text-left">
+                                {[{id:'recent',label:t.recent,desc:'去年〜来年',icon:'fa-clock'}, {id:'birthday',label:t.birthday,desc:'過去80年',icon:'fa-cake-candles'}, {id:'competition',label:t.competition,desc:'1500-2500',icon:'fa-trophy'}].map(r => (
+                                    <div key={r.id} className="relative group">
+                                        <button onClick={() => startCountdown(r.id)} className="w-full flex items-center p-4 bg-white border border-slate-100 rounded-2xl shadow-sm active:scale-95 transition-all pr-12 text-left hover:shadow-md">
                                             <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 mr-4 transition-colors group-hover:bg-indigo-50 group-hover:text-indigo-500"><i className={`fa-solid ${r.icon}`}></i></div>
                                             <div>
                                                 <div className="font-bold text-slate-800">{r.label}</div>
-                                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{r.desc}</div>
+                                                {globalSettings.lang === 'ja' && <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{r.desc}</div>}
                                             </div>
                                         </button>
-                                        <button onClick={() => { setSelectedRange(r.id); setIsGraphOpen(true); }} className="absolute right-4 top-1/2 -translate-y-1/2 text-indigo-400 p-2 hover:text-indigo-600 transition-colors">
-                                            <i className="fa-solid fa-chart-line"></i>
+                                        <button onClick={() => { setSelectedRange(r.id); setIsHistoryOpen(true); }} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 p-2 hover:text-indigo-600 transition-colors">
+                                            <i className="fa-solid fa-clock-rotate-left"></i>
                                         </button>
                                     </div>
                                 ))}
@@ -579,20 +594,14 @@
                                 </div>
                             </div>
                         )}
-                        {isGraphOpen && (
-                            <div className="fixed inset-0 z-[120] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-                                <div className="bg-white w-full max-w-sm rounded-[3rem] p-8 shadow-2xl">
-                                    <div className="flex justify-between items-center mb-8">
-                                        <h3 className="text-xl font-black flex items-center gap-2 text-slate-800">
-                                            <i className="fa-solid fa-chart-line text-indigo-500"></i> {t.graph} 
-                                            <span className="text-[10px] bg-indigo-50 px-3 py-1 rounded-full text-indigo-600 font-black uppercase tracking-widest ml-1">{t[selectedRange] || selectedRange}</span>
-                                        </h3>
-                                        <button onClick={() => setIsGraphOpen(false)} className="w-10 h-10 flex items-center justify-center bg-slate-100 rounded-2xl text-slate-500 hover:bg-slate-200 transition-colors"><i className="fa-solid fa-xmark"></i></button>
-                                    </div>
-                                    <TrendGraph records={JSON.parse(localStorage.getItem('calendar_records') || '[]').filter(r => r.range === selectedRange)} timerFormat={settings.timerFormat} t={t} />
-                                    <button onClick={() => setIsGraphOpen(false)} className="w-full mt-10 py-4 bg-slate-900 text-white font-black rounded-2xl hover:bg-slate-800 transition-colors">{t.back}</button>
-                                </div>
-                            </div>
+                        {isHistoryOpen && (
+                            <HistoryModal 
+                                history={JSON.parse(localStorage.getItem('calendar_history') || '[]')} 
+                                range={selectedRange} 
+                                onClose={() => setIsHistoryOpen(false)} 
+                                t={t} 
+                                formatTime={formatTime} 
+                            />
                         )}
                     </div>
                 );
@@ -617,6 +626,7 @@
                             {questions.map((q, idx) => {
                                 const isAnswered = idx < laps.length;
                                 const isActive = idx === activeQuestion;
+                                const lap = laps[idx];
                                 return (
                                     <div key={idx} className={`p-4 rounded-2xl transition-all duration-300 ${isActive ? 'bg-indigo-50 scale-[1.02]' : isAnswered ? 'bg-slate-50 opacity-60' : 'opacity-20 blur-[1px]'}`}>
                                         <div className="flex items-center justify-between">
@@ -624,7 +634,11 @@
                                                 <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] ${isActive ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-500'}`}>{idx + 1}</div>
                                                 <span className={`font-bold ${isActive ? 'text-lg' : 'text-sm'}`}>{isActive || isAnswered ? formatDate(q) : '????年??月??日'}</span>
                                             </div>
-                                            {isAnswered && <i className={`fa-solid ${laps[idx].correct ? 'fa-circle-check text-green-500' : 'fa-circle-xmark text-red-400'}`}></i>}
+                                            {isAnswered && (
+                                                <div className="text-base font-bold text-slate-500 ml-auto">
+                                                    ({lap.userAnswer})
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 );
@@ -648,19 +662,22 @@
                 if (!currentResult) return null;
                 const avg = currentResult.totalTime / 5;
                 const best = getBestScore(selectedRange);
-                const isNewRecord = best !== null && currentResult.finalScore <= best;
+                const correctCount = currentResult.laps.filter(l => l.correct).length;
 
                 return (
                     <div className="h-full flex flex-col p-4 overflow-y-auto no-scrollbar">
                         <div className="flex justify-between items-center mb-6 pt-2">
-                            <h2 className="text-2xl font-black flex items-center gap-3 text-slate-800"><i className="fa-solid fa-award text-amber-500"></i> {t.result}</h2>
+                            <div>
+                                <h2 className="text-2xl font-black flex items-center gap-3 text-slate-800"><i className="fa-solid fa-award text-amber-500"></i> {t.result}</h2>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">{t.mode}: {t[selectedRange] || selectedRange}</span>
+                            </div>
                             <div className="flex gap-2">
-                                <button onClick={() => setIsGraphOpen(true)} className="w-10 h-10 flex items-center justify-center bg-indigo-50 rounded-full text-indigo-600 shadow-sm transition-all hover:bg-indigo-100"><i className="fa-solid fa-chart-line"></i></button>
+                                <button onClick={() => setIsHistoryOpen(true)} className="w-10 h-10 flex items-center justify-center bg-indigo-50 rounded-full text-indigo-600 shadow-sm transition-all hover:bg-indigo-100"><i className="fa-solid fa-clock-rotate-left"></i></button>
                                 <button onClick={handleHomeClick} className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-slate-500 shadow-sm transition-all hover:text-indigo-600"><i className="fa-solid fa-house"></i></button>
                             </div>
                         </div>
 
-                        {/* Redesigned Blue Score Card - Linear and Spaced */}
+                        {/* Redesigned Blue Score Card */}
                         <div className="w-full bg-indigo-600 text-white rounded-[2.5rem] p-8 sm:p-10 mb-8 shadow-2xl relative flex flex-col items-center text-center">
                             {isNewRecord && (
                                 <div className="absolute top-0 right-0 bg-yellow-400 text-yellow-900 text-[10px] font-black px-4 py-1.5 rounded-bl-2xl uppercase tracking-widest shadow-md">
@@ -674,27 +691,24 @@
                                 {formatTime(currentResult.finalScore, settings.timerFormat)}
                             </div>
 
-                            {/* Best Score (Small Display) */}
-                            <div className="flex items-center gap-2 mb-8 bg-black/10 px-4 py-1.5 rounded-full">
-                                <i className="fa-solid fa-crown text-yellow-400 text-[10px]"></i>
-                                <span className="text-xs font-black tracking-widest uppercase">{t.bestScore}: {best ? formatTime(best, settings.timerFormat) : '-'}</span>
+                            {/* Best Score (Medium Display) */}
+                            <div className="flex items-center gap-2 mb-10 bg-black/10 px-5 py-2 rounded-full">
+                                <i className="fa-solid fa-crown text-yellow-400 text-xs"></i>
+                                <span className="text-sm font-black tracking-widest uppercase">{t.bestScore}: {best ? formatTime(best, settings.timerFormat) : '-'}</span>
                             </div>
-
-                            {/* Register Action Button */}
-                            <button 
-                                onClick={() => handleRegister(currentResult)} 
-                                disabled={isRegistered} 
-                                className={`w-full py-5 rounded-[2rem] text-lg font-black flex items-center justify-center gap-3 mb-10 transition-all duration-300 ${isRegistered ? 'bg-white/20 text-white/50 cursor-default' : 'bg-white text-indigo-600 hover:scale-[1.02] active:scale-[0.98] shadow-xl'}`}
-                            >
-                                {isRegistered ? <><i className="fa-solid fa-check-double"></i> {t.registered}</> : <><i className="fa-solid fa-floppy-disk"></i> {t.register}</>}
-                            </button>
 
                             {/* Detailed Stats Rows */}
                             <div className="w-full space-y-8 pt-8 border-t border-white/20">
-                                {/* Row 1: Time Only */}
-                                <div className="flex flex-col items-center">
-                                    <div className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-1">{t.rawTime}</div>
-                                    <div className="font-mono font-black text-3xl">{formatTime(currentResult.totalTime, settings.timerFormat)}</div>
+                                {/* Row 1: Time & Accuracy */}
+                                <div className="grid grid-cols-2 w-full gap-4">
+                                    <div className="flex flex-col items-center">
+                                        <div className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-1">{t.rawTime}</div>
+                                        <div className="font-mono font-black text-2xl">{formatTime(currentResult.totalTime, settings.timerFormat)}</div>
+                                    </div>
+                                    <div className="flex flex-col items-center">
+                                        <div className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-1">{t.accuracy}</div>
+                                        <div className="font-mono font-black text-2xl tracking-tight">{correctCount} / 5</div>
+                                    </div>
                                 </div>
                                 {/* Row 2: Average and Penalty */}
                                 <div className="grid grid-cols-2 w-full gap-4">
@@ -733,13 +747,23 @@
 
                         {/* Actions */}
                         <div className="space-y-4 pb-12 mt-auto">
-                            <button onClick={() => handleRetryCheck(() => startCountdown(selectedRange))} className="w-full py-6 bg-indigo-600 text-white text-xl font-black rounded-[2rem] shadow-lg hover:shadow-xl active:scale-95 transition-all">
+                            <button onClick={() => startCountdown(selectedRange)} className="w-full py-6 bg-indigo-600 text-white text-xl font-black rounded-[2rem] shadow-lg hover:shadow-xl active:scale-95 transition-all">
                                 <i className="fa-solid fa-rotate-right mr-3"></i> {t.retry}
                             </button>
-                            <button onClick={() => handleRetryCheck(() => setGameState('idle'))} className="w-full py-6 bg-white border-2 border-slate-100 text-slate-600 text-xl font-black rounded-[2rem] active:scale-95 transition-all">
+                            <button onClick={() => setGameState('idle')} className="w-full py-6 bg-white border-2 border-slate-100 text-slate-600 text-xl font-black rounded-[2rem] active:scale-95 transition-all">
                                 <i className="fa-solid fa-sliders mr-3"></i> {t.changeRange}
                             </button>
                         </div>
+                        
+                        {isHistoryOpen && (
+                            <HistoryModal 
+                                history={JSON.parse(localStorage.getItem('calendar_history') || '[]')} 
+                                range={selectedRange} 
+                                onClose={() => setIsHistoryOpen(false)} 
+                                t={t} 
+                                formatTime={formatTime} 
+                            />
+                        )}
                     </div>
                 );
             }
