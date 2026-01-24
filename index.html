@@ -41,13 +41,8 @@
         
         .safe-area-pb { padding-bottom: env(safe-area-inset-bottom); }
 
-        .question-item {
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .question-blur {
-            filter: blur(8px);
-            opacity: 0.3;
-            pointer-events: none;
+        .card-shadow {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
         }
     </style>
 <link rel="stylesheet" href="/index.css">
@@ -66,6 +61,11 @@
         const DAYS_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
         const DAYS_EN_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
         const HIRAGANA_SET = 'あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへ'.split('');
+
+        // Card Constants
+        const SUITS = ['spade', 'heart', 'diamond', 'club'];
+        const SUIT_ICONS = { spade: '♠', heart: '♥', diamond: '♦', club: '♣' };
+        const VALUES = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
 
         const getJapaneseEra = (date) => {
             const year = date.getFullYear();
@@ -97,6 +97,7 @@
                 calendar: 'カレンダー計算',
                 number: 'ナンバー記憶',
                 letter: 'レターペア',
+                card: 'トランプ記憶',
                 settings: 'アプリ設定',
                 history: '履歴',
                 lang: '表示言語',
@@ -137,6 +138,7 @@
                 descCal: '曜日を素早く計算する訓練',
                 descNum: '数字をイメージに変換する訓練',
                 descLet: 'かな２文字を変換する訓練',
+                descCard: '52枚のカードを記憶する訓練',
                 recent: '最近',
                 birthday: '誕生日',
                 competition: '競技',
@@ -149,13 +151,37 @@
                 sec: '秒',
                 lap: 'ラップ',
                 mode: '出題範囲',
-                accuracy: '正解数'
+                accuracy: '正解数',
+                // Number/Card Training Specific
+                numConversion: '変換練習',
+                numMemory: '記憶練習',
+                descConversion: 'イメージに変換するのみ',
+                descMemory: '記憶して回答する',
+                bunchCount: '束数 (デッキ数)',
+                digitsPerBunch: '1束あたりの数',
+                digitsPerImage: '1イメージの単位',
+                imagesPerView: '同時表示数',
+                separator: '区切り文字',
+                noDuplicates: '束内で重複なし',
+                rangeStart: '開始番号',
+                rangeEnd: '終了番号',
+                autoNextSpeed: '自動送り速度',
+                recallInput: '回答入力',
+                checkResult: '採点する',
+                correctRate: '正解率',
+                inputPlace: '入力待機...',
+                none: '(無し)',
+                finish: '終了',
+                recall: '回答へ',
+                memorization: '記憶',
+                totalDigits: '総数'
             },
             en: {
                 appTitle: 'MemoryPro',
                 calendar: 'Calendar Calc',
                 number: 'Number Memory',
                 letter: 'Letter Pair',
+                card: 'Card Memory',
                 settings: 'Settings',
                 history: 'History',
                 lang: 'Language',
@@ -196,6 +222,7 @@
                 descCal: 'Calculate day of week',
                 descNum: 'Convert numbers to images',
                 descLet: 'Convert letters to images',
+                descCard: 'Memorize deck of 52 cards',
                 recent: 'Recent',
                 birthday: 'Birthday',
                 competition: 'Competition',
@@ -208,25 +235,40 @@
                 sec: 's',
                 lap: 'Lap',
                 mode: 'Mode',
-                accuracy: 'Accuracy'
+                accuracy: 'Accuracy',
+                // Number/Card Training Specific
+                numConversion: 'Conversion',
+                numMemory: 'Memory',
+                descConversion: 'Convert to images only',
+                descMemory: 'Memorize and recall',
+                bunchCount: 'Decks/Bunches',
+                digitsPerBunch: 'Items/Bunch',
+                digitsPerImage: 'Items/Image',
+                imagesPerView: 'Images/View',
+                separator: 'Separator',
+                noDuplicates: 'No Duplicates',
+                rangeStart: 'Start #',
+                rangeEnd: 'End #',
+                autoNextSpeed: 'Auto Speed',
+                recallInput: 'Recall Input',
+                checkResult: 'Check',
+                correctRate: 'Accuracy',
+                inputPlace: 'Waiting...',
+                none: '(None)',
+                finish: 'Finish',
+                recall: 'Recall',
+                memorization: 'Memorize',
+                totalDigits: 'Total Count'
             }
         };
 
-        // --- Components ---
+        // --- Shared Components ---
 
         const GlobalSettingsModal = ({ globalSettings, setGlobalSettings, onClose, t }) => {
             if (!t) return null;
             const handleReset = () => { if (window.confirm(t.resetConfirm)) { localStorage.clear(); window.location.reload(); } };
             const handleExport = () => {
-                const data = {
-                    calendar_history: localStorage.getItem('calendar_history'),
-                    calendar_records: localStorage.getItem('calendar_records'), 
-                    memory_pro_numbers: localStorage.getItem('memory_pro_numbers'),
-                    memory_pro_letters: localStorage.getItem('memory_pro_letters'),
-                    calendar_settings: localStorage.getItem('calendar_settings'),
-                    number_settings: localStorage.getItem('number_settings'),
-                    global_settings: JSON.stringify(globalSettings)
-                };
+                const data = { ...localStorage };
                 const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
@@ -241,12 +283,7 @@
                 reader.onload = (event) => {
                     try {
                         const data = JSON.parse(event.target.result);
-                        if (data.calendar_history) localStorage.setItem('calendar_history', data.calendar_history);
-                        if (data.calendar_records) localStorage.setItem('calendar_records', data.calendar_records);
-                        if (data.memory_pro_numbers) localStorage.setItem('memory_pro_numbers', data.memory_pro_numbers);
-                        if (data.memory_pro_letters) localStorage.setItem('memory_pro_letters', data.memory_pro_letters);
-                        if (data.calendar_settings) localStorage.setItem('calendar_settings', data.calendar_settings);
-                        if (data.number_settings) localStorage.setItem('number_settings', data.number_settings);
+                        Object.keys(data).forEach(k => localStorage.setItem(k, data[k]));
                         if (data.global_settings) setGlobalSettings(JSON.parse(data.global_settings));
                         alert('インポート完了。'); window.location.reload();
                     } catch (err) { alert('不正なファイル形式です。'); }
@@ -287,6 +324,29 @@
                 </div>
             );
         };
+
+        const Card = ({ suit, value, className = "" }) => {
+            const isRed = suit === 'heart' || suit === 'diamond';
+            const colorClass = isRed ? 'text-red-500' : 'text-slate-800';
+            
+            return (
+                <div className={`bg-white rounded-lg border border-slate-200 card-shadow flex flex-col items-center justify-center relative select-none ${className}`}>
+                    <div className={`absolute top-1 left-1.5 flex flex-col items-center leading-none ${colorClass}`}>
+                        <span className="text-sm font-bold tracking-tighter">{value}</span>
+                        <span className="text-xs">{SUIT_ICONS[suit]}</span>
+                    </div>
+                    <div className={`text-3xl ${colorClass}`}>
+                        {SUIT_ICONS[suit]}
+                    </div>
+                    <div className={`absolute bottom-1 right-1.5 flex flex-col items-center leading-none rotate-180 ${colorClass}`}>
+                        <span className="text-sm font-bold tracking-tighter">{value}</span>
+                        <span className="text-xs">{SUIT_ICONS[suit]}</span>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- Restored Components: HistoryModal & CalendarTrainer ---
 
         const HistoryModal = ({ history, range, onClose, t, formatTime }) => {
             const [expandedId, setExpandedId] = useState(null);
@@ -769,58 +829,684 @@
             }
         };
 
-        const NumberTrainer = ({ onBack, globalSettings, t }) => {
-            const [gameState, setGameState] = useState('idle');
-            const [currentValue, setCurrentValue] = useState('');
-            const [isLocalSettingsOpen, setIsLocalSettingsOpen] = useState(false);
-            const [history, setHistory] = useState([]);
-            const [settings, setSettings] = useState(() => {
-                const saved = localStorage.getItem('number_settings');
-                return saved ? JSON.parse(saved) : { digitPairs: 2, countdownSeconds: 3, spacing: true, autoNext: 0 };
-            });
-            const generate = useCallback(() => {
-                let res = '';
-                for (let i = 0; i < settings.digitPairs; i++) res += Math.floor(Math.random() * 10).toString();
-                if (settings.spacing && settings.digitPairs === 4) return res.slice(0, 2) + ' ' + res.slice(2);
-                return res;
-            }, [settings]);
+        const CardSettingsModal = ({ settings, updateSettings, onClose, t }) => {
+            return (
+                <div className="fixed inset-0 z-[110] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm">
+                    <div className="bg-white w-full max-w-sm rounded-[2rem] p-6 shadow-2xl overflow-y-auto max-h-[85vh] no-scrollbar">
+                        <div className="flex items-center justify-between mb-6">
+                            <h3 className="text-lg font-bold flex items-center gap-2 text-slate-800"><i className="fa-solid fa-cog text-rose-500"></i> {t.gameSettings}</h3>
+                            <button onClick={onClose} className="w-8 h-8 flex items-center justify-center bg-slate-100 rounded-full text-slate-500 hover:bg-slate-200"><i className="fa-solid fa-xmark"></i></button>
+                        </div>
+                        <div className="space-y-5">
+                            <section>
+                                <label className="text-xs font-bold text-slate-400 uppercase mb-2 block tracking-widest">{t.bunchCount}</label>
+                                <select value={settings.deckCount} onChange={(e) => updateSettings('deckCount', parseInt(e.target.value))} className="w-full p-2.5 border-2 border-slate-100 rounded-xl font-bold text-slate-700 bg-white">
+                                    {[1, 2, 3].map(n => <option key={n} value={n}>{n} Deck(s)</option>)}
+                                </select>
+                            </section>
+                            <section>
+                                <label className="text-xs font-bold text-slate-400 uppercase mb-2 block tracking-widest">{t.digitsPerImage} (Cards/Img)</label>
+                                <select value={settings.cardsPerImage} onChange={(e) => updateSettings('cardsPerImage', parseInt(e.target.value))} className="w-full p-2.5 border-2 border-slate-100 rounded-xl font-bold text-slate-700 bg-white">
+                                    {[1, 2].map(n => <option key={n} value={n}>{n} Card(s)</option>)}
+                                </select>
+                            </section>
+                            <section>
+                                <label className="text-xs font-bold text-slate-400 uppercase mb-2 block tracking-widest">{t.imagesPerView}</label>
+                                <select value={settings.imagesPerView} onChange={(e) => updateSettings('imagesPerView', parseInt(e.target.value))} className="w-full p-2.5 border-2 border-slate-100 rounded-xl font-bold text-slate-700 bg-white">
+                                    {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n} Image(s)</option>)}
+                                </select>
+                            </section>
+                            <section>
+                                <label className="text-xs font-bold text-slate-400 uppercase mb-2 block tracking-widest">{t.autoNextSpeed}</label>
+                                <select value={settings.autoNext} onChange={(e) => updateSettings('autoNext', parseFloat(e.target.value))} className="w-full p-2.5 border-2 border-slate-100 rounded-xl font-bold text-slate-700 bg-white">
+                                    <option value={0}>{t.autoNextOff}</option>
+                                    {[0.5, 1.0, 1.5, 2.0, 3.0, 5.0].map(n => <option key={n} value={n}>{n}s</option>)}
+                                </select>
+                            </section>
+                        </div>
+                        <button onClick={onClose} className="w-full mt-8 py-4 bg-slate-900 text-white font-bold rounded-2xl shadow-lg active:scale-95 transition-all">{t.back}</button>
+                    </div>
+                </div>
+            );
+        };
 
-            const startCountdown = () => {
+        const CardTrainer = ({ onBack, globalSettings, t }) => {
+            const [gameState, setGameState] = useState('menu');
+            const [trainingType, setTrainingType] = useState(null);
+            const [deck, setDeck] = useState([]);
+            const [currentIndex, setCurrentIndex] = useState(0);
+            const [userRecall, setUserRecall] = useState([]);
+            const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+            const [countdownText, setCountdownText] = useState('');
+            const [startTime, setStartTime] = useState(0);
+            const [endTime, setEndTime] = useState(0);
+            const [selectedSuit, setSelectedSuit] = useState(null);
+
+            const [settings, setSettings] = useState(() => {
+                const saved = localStorage.getItem('card_settings');
+                return saved ? JSON.parse(saved) : { 
+                    deckCount: 1, cardsPerImage: 2, imagesPerView: 1,
+                    autoNext: 0, countdownSeconds: 3
+                };
+            });
+
+            const updateSettings = (key, val) => {
+                const ns = {...settings, [key]: val};
+                setSettings(ns);
+                localStorage.setItem('card_settings', JSON.stringify(ns));
+            };
+
+            const generateDeck = useCallback(() => {
+                let d = [];
+                for(let i=0; i<settings.deckCount; i++) {
+                    const tempDeck = [];
+                    SUITS.forEach(suit => {
+                        VALUES.forEach(val => {
+                            tempDeck.push({ suit, value: val, id: generateId() });
+                        });
+                    });
+                    // Shuffle
+                    for (let j = tempDeck.length - 1; j > 0; j--) {
+                        const k = Math.floor(Math.random() * (j + 1));
+                        [tempDeck[j], tempDeck[k]] = [tempDeck[k], tempDeck[j]];
+                    }
+                    d = [...d, ...tempDeck];
+                }
+                return d;
+            }, [settings.deckCount]);
+
+            const startTraining = (type) => {
+                setTrainingType(type);
+                setDeck(generateDeck());
+                setCurrentIndex(0);
+                setUserRecall([]);
+                setSelectedSuit(null);
                 setGameState('countdown');
                 let count = settings.countdownSeconds || 3;
+                setCountdownText(count.toString());
                 const interval = setInterval(() => {
                     count--;
-                    if (count < 0) { clearInterval(interval); setGameState('playing'); setCurrentValue(generate()); setHistory([]); }
+                    if (count === 0) setCountdownText('START!');
+                    else if (count < 0) { 
+                        clearInterval(interval); 
+                        setGameState('memorization'); 
+                        setStartTime(performance.now());
+                    }
+                    else setCountdownText(count.toString());
                 }, 1000);
             };
 
-            const next = () => { setHistory(prev => [currentValue, ...prev].slice(0, 5)); setCurrentValue(generate()); };
+            useEffect(() => {
+                let timer;
+                if(gameState === 'memorization' && settings.autoNext > 0) {
+                    timer = setInterval(() => {
+                        handleNext();
+                    }, settings.autoNext * 1000);
+                }
+                return () => clearInterval(timer);
+            }, [gameState, currentIndex, settings.autoNext]);
 
-            return (
-                <div className="h-full flex flex-col p-4 relative">
-                    <div className="flex justify-between items-center mb-6">
-                        <button onClick={onBack} className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-slate-500 shadow-sm hover:text-emerald-600 transition-colors"><i className="fa-solid fa-house"></i></button>
-                        <h2 className="text-lg font-bold text-slate-800">{t.number}</h2>
-                        <div className="w-10 h-10"></div>
-                    </div>
-                    {gameState === 'idle' ? (
-                        <div className="flex-grow flex flex-col items-center justify-center -mt-10">
-                            <div className="mb-6 p-6 bg-emerald-50 rounded-full text-emerald-600 shadow-inner"><i className="fa-solid fa-hashtag text-5xl"></i></div>
-                            <button onClick={startCountdown} className="w-full max-w-sm py-5 bg-emerald-600 text-white font-bold rounded-2xl shadow-lg active:scale-95 text-xl transition-all hover:bg-emerald-700">{t.start}</button>
+            const handleNext = () => {
+                const step = settings.cardsPerImage * settings.imagesPerView;
+                const nextIdx = currentIndex + step;
+                if(nextIdx >= deck.length) {
+                    if(trainingType === 'memory') {
+                        setGameState('recall');
+                    } else {
+                        setGameState('menu'); 
+                    }
+                } else {
+                    setCurrentIndex(nextIdx);
+                }
+            };
+
+            const handleRecallInput = (val) => {
+                if(selectedSuit) {
+                    const card = { suit: selectedSuit, value: val, id: generateId() };
+                    setUserRecall(prev => [...prev, card]);
+                    setSelectedSuit(null); // Reset suit selection for next card (optional, but good for keyboard flow)
+                }
+            };
+            
+            const handleBackspace = () => {
+                setUserRecall(prev => prev.slice(0, -1));
+            };
+
+            const finishRecall = () => {
+                setEndTime(performance.now());
+                setGameState('result');
+            };
+
+            if (gameState === 'menu') {
+                return (
+                    <div className="h-full flex flex-col p-4 relative overflow-y-auto no-scrollbar">
+                        <div className="flex justify-between items-center mb-6">
+                            <button onClick={onBack} className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-slate-500 shadow-sm hover:text-rose-600 transition-colors"><i className="fa-solid fa-house"></i></button>
+                            <h2 className="text-lg font-bold text-slate-800">{t.card}</h2>
+                            <button onClick={() => setIsSettingsOpen(true)} className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-slate-500 shadow-sm hover:text-rose-600 transition-colors"><i className="fa-solid fa-cog"></i></button>
                         </div>
-                    ) : (
-                        <div className="flex-grow flex flex-col items-center justify-center py-4">
-                            <div className="text-6xl sm:text-8xl font-mono font-black text-emerald-600 text-center break-all tracking-tighter">{currentValue}</div>
-                            <div className="mt-20 w-full max-w-sm px-4">
-                                <div className="flex flex-wrap justify-center gap-2 mb-8 h-10 overflow-hidden">
-                                    {history.map((h, i) => <span key={i} className="px-2 py-1 bg-white text-slate-400 font-mono text-xs font-bold rounded-lg border border-slate-100">{h}</span>)}
+                        
+                        <div className="flex-grow flex flex-col items-center justify-center gap-6">
+                            <button onClick={() => startTraining('conversion')} className="w-full max-w-sm p-6 bg-white border-2 border-slate-100 rounded-[2rem] shadow-sm active:scale-95 transition-all text-left group hover:border-rose-200">
+                                <div className="w-12 h-12 bg-rose-50 rounded-2xl flex items-center justify-center text-rose-500 mb-4 text-2xl group-hover:bg-rose-500 group-hover:text-white transition-colors"><i className="fa-solid fa-shuffle"></i></div>
+                                <div className="text-xl font-black text-slate-800 mb-1">{t.numConversion}</div>
+                                <div className="text-xs font-bold text-slate-400">{t.descConversion}</div>
+                            </button>
+                            <button onClick={() => startTraining('memory')} className="w-full max-w-sm p-6 bg-rose-500 text-white rounded-[2rem] shadow-lg active:scale-95 transition-all text-left relative overflow-hidden">
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10"></div>
+                                <div className="relative z-10">
+                                    <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center text-white mb-4 text-2xl"><i className="fa-solid fa-brain"></i></div>
+                                    <div className="text-xl font-black mb-1">{t.numMemory}</div>
+                                    <div className="text-xs font-bold text-rose-100">{t.descMemory}</div>
                                 </div>
-                                <button onClick={next} className="w-full py-6 bg-emerald-600 text-white text-2xl font-black rounded-[2rem] shadow-xl active:scale-95 transition-all hover:bg-emerald-700">{t.next}</button>
+                            </button>
+                        </div>
+
+                        {isSettingsOpen && <CardSettingsModal settings={settings} updateSettings={updateSettings} onClose={() => setIsSettingsOpen(false)} t={t} />}
+                    </div>
+                );
+            }
+
+            if (gameState === 'countdown') return <div className="h-full flex items-center justify-center bg-rose-500 text-white"><div className="text-8xl font-black animate-countdown px-4 text-center">{countdownText}</div></div>;
+
+            if (gameState === 'memorization') {
+                const step = settings.cardsPerImage * settings.imagesPerView;
+                const currentBatch = deck.slice(currentIndex, currentIndex + step);
+                
+                // Grouping for display: array of images, each image is array of cards
+                const images = [];
+                for (let i = 0; i < currentBatch.length; i += settings.cardsPerImage) {
+                    images.push(currentBatch.slice(i, i + settings.cardsPerImage));
+                }
+
+                return (
+                    <div className="h-full flex flex-col p-6 bg-rose-50">
+                        <div className="flex justify-between items-center mb-6">
+                             <div className="text-sm font-bold text-rose-600 uppercase tracking-widest">{trainingType === 'conversion' ? t.numConversion : t.memorization}</div>
+                             <div className="text-xs font-bold text-slate-400">{currentIndex} / {deck.length}</div>
+                        </div>
+                        <div className="flex-grow flex flex-col items-center justify-center gap-8">
+                            {images.map((imgGroup, idx) => (
+                                <div key={idx} className="flex gap-4">
+                                    {imgGroup.map((c, cIdx) => (
+                                        <Card key={c.id} suit={c.suit} value={c.value} className="w-24 h-36 sm:w-32 sm:h-48 text-2xl sm:text-4xl" />
+                                    ))}
+                                </div>
+                            ))}
+                        </div>
+                        <button onClick={handleNext} className="w-full py-6 bg-white text-rose-600 text-xl font-black rounded-[2rem] shadow-xl active:scale-95 transition-all mt-6">
+                            {currentIndex + step >= deck.length ? (trainingType === 'memory' ? t.recall : t.finish) : t.next}
+                        </button>
+                    </div>
+                );
+            }
+
+            if (gameState === 'recall') {
+                return (
+                    <div className="h-full flex flex-col bg-slate-50">
+                        {/* Recall Stream Area */}
+                        <div className="flex-grow p-4 overflow-hidden flex flex-col">
+                             <div className="flex justify-between items-center mb-2">
+                                 <div className="text-sm font-bold text-slate-400 uppercase tracking-widest">{t.recallInput}</div>
+                                 <div className="text-xs font-bold text-slate-400">{userRecall.length} / {deck.length}</div>
+                             </div>
+                             <div className="flex-grow bg-white rounded-2xl border-2 border-slate-200 p-2 overflow-y-auto shadow-inner content-start grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2 place-content-start">
+                                {userRecall.length === 0 && <span className="text-slate-300 col-span-full text-center py-10">{t.inputPlace}</span>}
+                                {userRecall.map((c, i) => (
+                                    <div key={i} className={`relative rounded border p-1 flex items-center justify-center bg-slate-50 ${c.suit === 'heart' || c.suit === 'diamond' ? 'text-red-500 border-red-100' : 'text-slate-800 border-slate-200'}`}>
+                                        <span className="text-xs mr-0.5">{SUIT_ICONS[c.suit]}</span>
+                                        <span className="font-bold text-sm">{c.value}</span>
+                                    </div>
+                                ))}
+                             </div>
+                        </div>
+
+                        {/* Keyboard Area */}
+                        <div className="bg-white rounded-t-[2rem] shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] p-4 pb-8 z-10">
+                            {/* Actions */}
+                            <div className="flex justify-between mb-4 px-2">
+                                <button onClick={handleBackspace} className="w-12 h-12 bg-red-50 text-red-500 rounded-full flex items-center justify-center shadow-sm active:bg-red-100"><i className="fa-solid fa-delete-left"></i></button>
+                                <button onClick={finishRecall} className="px-6 h-12 bg-rose-500 text-white font-bold rounded-full shadow-lg active:scale-95">{t.checkResult}</button>
+                            </div>
+
+                            {/* Suit Selector */}
+                            <div className="grid grid-cols-4 gap-3 mb-4">
+                                {SUITS.map(s => (
+                                    <button 
+                                        key={s} 
+                                        onClick={() => setSelectedSuit(selectedSuit === s ? null : s)} 
+                                        className={`h-14 rounded-2xl text-2xl flex items-center justify-center transition-all ${
+                                            selectedSuit === s 
+                                                ? 'bg-slate-800 text-white shadow-md scale-105' 
+                                                : 'bg-slate-100 text-slate-400'
+                                        }`}
+                                    >
+                                        <span className={selectedSuit !== s && (s === 'heart' || s === 'diamond') ? 'text-red-400' : ''}>{SUIT_ICONS[s]}</span>
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* Value Selector */}
+                            <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
+                                {VALUES.map(v => (
+                                    <button 
+                                        key={v} 
+                                        onClick={() => handleRecallInput(v)} 
+                                        disabled={!selectedSuit}
+                                        className={`aspect-square rounded-xl font-bold text-lg flex items-center justify-center transition-all ${
+                                            !selectedSuit 
+                                                ? 'bg-slate-50 text-slate-200 cursor-not-allowed' 
+                                                : 'bg-white border border-slate-200 text-slate-700 shadow-sm active:scale-90 active:bg-slate-100'
+                                        }`}
+                                    >
+                                        {v}
+                                    </button>
+                                ))}
                             </div>
                         </div>
-                    )}
+                    </div>
+                );
+            }
+
+            if (gameState === 'result') {
+                const fullDeck = deck; // Array of objects
+                let correct = 0;
+                // Simple comparison by index
+                for(let i=0; i<Math.min(fullDeck.length, userRecall.length); i++) {
+                    if(fullDeck[i].suit === userRecall[i].suit && fullDeck[i].value === userRecall[i].value) {
+                        correct++;
+                    }
+                }
+                const time = endTime - startTime;
+
+                return (
+                    <div className="h-full flex flex-col p-4 overflow-y-auto no-scrollbar">
+                        <div className="flex justify-between items-center mb-6 pt-2">
+                            <h2 className="text-2xl font-black text-slate-800"><i className="fa-solid fa-square-check text-rose-500 mr-2"></i> {t.result}</h2>
+                            <button onClick={() => setGameState('menu')} className="w-10 h-10 flex items-center justify-center bg-slate-100 rounded-full text-slate-500"><i className="fa-solid fa-xmark"></i></button>
+                        </div>
+                        
+                        <div className="bg-white rounded-[2rem] p-6 shadow-xl mb-6 border border-slate-100">
+                             <div className="grid grid-cols-2 gap-4 text-center">
+                                 <div>
+                                     <div className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t.correctRate}</div>
+                                     <div className="text-3xl font-black text-slate-800">{correct} <span className="text-lg text-slate-400">/ {fullDeck.length}</span></div>
+                                 </div>
+                                 <div>
+                                     <div className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t.rawTime}</div>
+                                     <div className="text-3xl font-black text-slate-800">{formatTime(time)}</div>
+                                 </div>
+                             </div>
+                        </div>
+
+                        <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 mb-6 flex-grow overflow-y-auto">
+                            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">DETAILS</h3>
+                            <div className="grid grid-cols-1 gap-2">
+                                {fullDeck.map((card, i) => {
+                                    const userCard = userRecall[i];
+                                    const isCorrect = userCard && userCard.suit === card.suit && userCard.value === card.value;
+                                    
+                                    return (
+                                        <div key={i} className="flex items-center justify-between p-2 border-b border-slate-50 last:border-0">
+                                            <span className="text-xs text-slate-300 font-mono w-6">{i+1}</span>
+                                            <div className="flex items-center gap-4">
+                                                <div className="flex items-center gap-1 w-12 justify-end">
+                                                    <span className={`text-sm ${card.suit === 'heart' || card.suit === 'diamond' ? 'text-red-500' : 'text-slate-700'}`}>{SUIT_ICONS[card.suit]} {card.value}</span>
+                                                </div>
+                                                <i className={`fa-solid fa-arrow-right text-xs text-slate-200`}></i>
+                                                <div className="flex items-center gap-1 w-12">
+                                                    {userCard ? (
+                                                        <span className={`text-sm font-bold ${userCard.suit === 'heart' || userCard.suit === 'diamond' ? 'text-red-500' : 'text-slate-700'}`}>{SUIT_ICONS[userCard.suit]} {userCard.value}</span>
+                                                    ) : (
+                                                        <span className="text-slate-300 text-xs">-</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="w-6 text-right">
+                                                {isCorrect 
+                                                    ? <i className="fa-solid fa-check text-green-500"></i> 
+                                                    : <i className="fa-solid fa-xmark text-red-400"></i>}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        <button onClick={() => startTraining('memory')} className="w-full py-6 bg-rose-500 text-white text-xl font-black rounded-[2rem] shadow-lg active:scale-95 transition-all mb-4">
+                            <i className="fa-solid fa-rotate-right mr-2"></i> {t.retry}
+                        </button>
+                    </div>
+                );
+            }
+            return null;
+        };
+
+        const NumberSettingsModal = ({ settings, updateSettings, onClose, t }) => {
+            return (
+                <div className="fixed inset-0 z-[110] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm">
+                    <div className="bg-white w-full max-w-sm rounded-[2rem] p-6 shadow-2xl overflow-y-auto max-h-[85vh] no-scrollbar">
+                        <div className="flex items-center justify-between mb-6">
+                            <h3 className="text-lg font-bold flex items-center gap-2 text-slate-800"><i className="fa-solid fa-cog text-emerald-500"></i> {t.gameSettings}</h3>
+                            <button onClick={onClose} className="w-8 h-8 flex items-center justify-center bg-slate-100 rounded-full text-slate-500 hover:bg-slate-200"><i className="fa-solid fa-xmark"></i></button>
+                        </div>
+                        <div className="space-y-5">
+                            <section>
+                                <label className="text-xs font-bold text-slate-400 uppercase mb-2 block tracking-widest">{t.range}</label>
+                                <div className="flex gap-2 items-center">
+                                    <div className="flex-1">
+                                        <span className="text-[10px] text-slate-400 block mb-1">{t.rangeStart}</span>
+                                        <input type="number" min="0" max="99" value={settings.rangeStart} onChange={(e) => updateSettings('rangeStart', Math.max(0, Math.min(99, parseInt(e.target.value)||0)))} className="w-full p-2 border-2 border-slate-100 rounded-xl font-bold text-center text-slate-700 focus:border-emerald-500 outline-none" />
+                                    </div>
+                                    <span className="text-slate-300">~</span>
+                                    <div className="flex-1">
+                                        <span className="text-[10px] text-slate-400 block mb-1">{t.rangeEnd}</span>
+                                        <input type="number" min="0" max="99" value={settings.rangeEnd} onChange={(e) => updateSettings('rangeEnd', Math.max(0, Math.min(99, parseInt(e.target.value)||0)))} className="w-full p-2 border-2 border-slate-100 rounded-xl font-bold text-center text-slate-700 focus:border-emerald-500 outline-none" />
+                                    </div>
+                                </div>
+                            </section>
+                            <section>
+                                <label className="text-xs font-bold text-slate-400 uppercase mb-2 block tracking-widest">{t.bunchCount}</label>
+                                <select value={settings.bunchCount} onChange={(e) => updateSettings('bunchCount', parseInt(e.target.value))} className="w-full p-2.5 border-2 border-slate-100 rounded-xl font-bold text-slate-700 bg-white">
+                                    {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}</option>)}
+                                </select>
+                            </section>
+                            <section>
+                                <label className="text-xs font-bold text-slate-400 uppercase mb-2 block tracking-widest">{t.digitsPerBunch}</label>
+                                <select value={settings.digitsPerBunch} onChange={(e) => updateSettings('digitsPerBunch', parseInt(e.target.value))} className="w-full p-2.5 border-2 border-slate-100 rounded-xl font-bold text-slate-700 bg-white">
+                                    {[10, 20, 40, 50, 80, 100].map(n => <option key={n} value={n}>{n}</option>)}
+                                </select>
+                            </section>
+                            <section>
+                                <label className="text-xs font-bold text-slate-400 uppercase mb-2 block tracking-widest">{t.digitsPerImage}</label>
+                                <select value={settings.digitsPerImage} onChange={(e) => updateSettings('digitsPerImage', parseInt(e.target.value))} className="w-full p-2.5 border-2 border-slate-100 rounded-xl font-bold text-slate-700 bg-white">
+                                    {[1, 2, 3, 4].map(n => <option key={n} value={n}>{n}</option>)}
+                                </select>
+                            </section>
+                            <section>
+                                <label className="text-xs font-bold text-slate-400 uppercase mb-2 block tracking-widest">{t.imagesPerView}</label>
+                                <select value={settings.imagesPerView} onChange={(e) => updateSettings('imagesPerView', parseInt(e.target.value))} className="w-full p-2.5 border-2 border-slate-100 rounded-xl font-bold text-slate-700 bg-white">
+                                    {[1, 2, 4, 8].map(n => <option key={n} value={n}>{n} {t.imagesPerView}</option>)}
+                                </select>
+                            </section>
+                            <section>
+                                <label className="text-xs font-bold text-slate-400 uppercase mb-2 block tracking-widest">{t.separator}</label>
+                                <input type="text" value={settings.separator} onChange={(e) => updateSettings('separator', e.target.value)} placeholder={t.none} className="w-full p-2.5 border-2 border-slate-100 rounded-xl font-bold text-slate-700" />
+                            </section>
+                            <section>
+                                <label className="flex items-center gap-3 p-3 border-2 border-slate-100 rounded-xl cursor-pointer">
+                                    <input type="checkbox" checked={settings.noDuplicates} onChange={(e) => updateSettings('noDuplicates', e.target.checked)} className="w-5 h-5 accent-emerald-500" />
+                                    <span className="font-bold text-sm text-slate-700">{t.noDuplicates}</span>
+                                </label>
+                            </section>
+                            <section>
+                                <label className="text-xs font-bold text-slate-400 uppercase mb-2 block tracking-widest">{t.autoNextSpeed}</label>
+                                <select value={settings.autoNext} onChange={(e) => updateSettings('autoNext', parseFloat(e.target.value))} className="w-full p-2.5 border-2 border-slate-100 rounded-xl font-bold text-slate-700 bg-white">
+                                    <option value={0}>{t.autoNextOff}</option>
+                                    {[0.5, 1.0, 1.5, 2.0, 3.0, 5.0].map(n => <option key={n} value={n}>{n}s</option>)}
+                                </select>
+                            </section>
+                        </div>
+                        <button onClick={onClose} className="w-full mt-8 py-4 bg-slate-900 text-white font-bold rounded-2xl shadow-lg active:scale-95 transition-all">{t.back}</button>
+                    </div>
                 </div>
             );
+        };
+
+        const NumberTrainer = ({ onBack, globalSettings, t }) => {
+            const [gameState, setGameState] = useState('menu'); // menu, countdown, memorization, recall, result
+            const [trainingType, setTrainingType] = useState(null); // conversion, memory
+            const [sequence, setSequence] = useState([]);
+            const [currentIndex, setCurrentIndex] = useState(0);
+            const [userInput, setUserInput] = useState("");
+            const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+            const [countdownText, setCountdownText] = useState('');
+            const [startTime, setStartTime] = useState(0);
+            const [endTime, setEndTime] = useState(0);
+            
+            const [settings, setSettings] = useState(() => {
+                const saved = localStorage.getItem('number_settings_v2');
+                return saved ? JSON.parse(saved) : { 
+                    rangeStart: 0, rangeEnd: 99, bunchCount: 1, digitsPerBunch: 40,
+                    digitsPerImage: 2, imagesPerView: 1, separator: '', noDuplicates: false,
+                    autoNext: 0, countdownSeconds: 3
+                };
+            });
+
+            const updateSettings = (key, val) => {
+                const ns = {...settings, [key]: val};
+                setSettings(ns);
+                localStorage.setItem('number_settings_v2', JSON.stringify(ns));
+            };
+
+            const generateSequence = useCallback(() => {
+                const totalDigits = settings.bunchCount * settings.digitsPerBunch;
+                const totalItems = Math.ceil(totalDigits / settings.digitsPerImage);
+                const newSeq = [];
+                const rangeSize = settings.rangeEnd - settings.rangeStart + 1;
+                
+                for(let i=0; i<totalItems; i++) {
+                    let num;
+                    if(settings.noDuplicates && rangeSize >= totalItems) {
+                         do {
+                            num = Math.floor(Math.random() * (settings.rangeEnd - settings.rangeStart + 1)) + settings.rangeStart;
+                         } while (newSeq.includes(num.toString().padStart(settings.digitsPerImage, '0')));
+                    } else {
+                        num = Math.floor(Math.random() * (settings.rangeEnd - settings.rangeStart + 1)) + settings.rangeStart;
+                    }
+                    // Pad logic needs to be smarter if range is e.g. 0-9 but digitsPerImage is 2, it should be 00-09
+                    // Assuming digitsPerImage dictates padding.
+                    let s = num.toString();
+                    while(s.length < settings.digitsPerImage) s = "0" + s;
+                    newSeq.push(s);
+                }
+                return newSeq;
+            }, [settings]);
+
+            const startTraining = (type) => {
+                setTrainingType(type);
+                setSequence(generateSequence());
+                setCurrentIndex(0);
+                setUserInput("");
+                setGameState('countdown');
+                let count = settings.countdownSeconds || 3;
+                setCountdownText(count.toString());
+                const interval = setInterval(() => {
+                    count--;
+                    if (count === 0) setCountdownText('START!');
+                    else if (count < 0) { 
+                        clearInterval(interval); 
+                        setGameState('memorization'); 
+                        setStartTime(performance.now());
+                    }
+                    else setCountdownText(count.toString());
+                }, 1000);
+            };
+
+            // Auto-next logic
+            useEffect(() => {
+                let timer;
+                if(gameState === 'memorization' && settings.autoNext > 0) {
+                    timer = setInterval(() => {
+                        handleNext();
+                    }, settings.autoNext * 1000);
+                }
+                return () => clearInterval(timer);
+            }, [gameState, currentIndex, settings.autoNext]);
+
+            const handleNext = () => {
+                const nextIdx = currentIndex + settings.imagesPerView;
+                if(nextIdx >= sequence.length) {
+                    if(trainingType === 'memory') {
+                        setGameState('recall');
+                    } else {
+                        // Conversion mode -> Loop or Finish? Let's Loop or Stop. 
+                        // Prompt said "random numbers stream", usually endless or finite. 
+                        // Let's reset to 0 for endless conversion, or stop. 
+                        // "Conversion Practice" usually implies endless. 
+                        // But let's stick to finite batch for now to allow return.
+                         // Or regenerate?
+                         // Let's just finish for now to keep consistent UI.
+                        setGameState('menu'); 
+                    }
+                } else {
+                    setCurrentIndex(nextIdx);
+                }
+            };
+
+            const handleRecallInput = (num) => {
+                setUserInput(prev => prev + num);
+            };
+            
+            const handleBackspace = () => {
+                setUserInput(prev => prev.slice(0, -1));
+            };
+
+            const finishRecall = () => {
+                setEndTime(performance.now());
+                setGameState('result');
+            };
+
+            // Formatting input for display
+            const formatRecallString = (str) => {
+                // Group by digitsPerImage
+                const chunk = settings.digitsPerImage;
+                const chunks = [];
+                for(let i=0; i<str.length; i+=chunk) {
+                    chunks.push(str.slice(i, i+chunk));
+                }
+                return chunks.join(settings.separator || ' ');
+            };
+
+            // Calculate Score
+            const calculateScore = () => {
+                const fullSeq = sequence.join('');
+                let correct = 0;
+                for(let i=0; i<Math.min(fullSeq.length, userInput.length); i++) {
+                    if(fullSeq[i] === userInput[i]) correct++;
+                }
+                return { correct, total: fullSeq.length };
+            };
+
+            if (gameState === 'menu') {
+                return (
+                    <div className="h-full flex flex-col p-4 relative overflow-y-auto no-scrollbar">
+                        <div className="flex justify-between items-center mb-6">
+                            <button onClick={onBack} className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-slate-500 shadow-sm hover:text-emerald-600 transition-colors"><i className="fa-solid fa-house"></i></button>
+                            <h2 className="text-lg font-bold text-slate-800">{t.number}</h2>
+                            <button onClick={() => setIsSettingsOpen(true)} className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-slate-500 shadow-sm hover:text-emerald-600 transition-colors"><i className="fa-solid fa-cog"></i></button>
+                        </div>
+                        
+                        <div className="flex-grow flex flex-col items-center justify-center gap-6">
+                            <button onClick={() => startTraining('conversion')} className="w-full max-w-sm p-6 bg-white border-2 border-slate-100 rounded-[2rem] shadow-sm active:scale-95 transition-all text-left group hover:border-emerald-200">
+                                <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-500 mb-4 text-2xl group-hover:bg-emerald-500 group-hover:text-white transition-colors"><i className="fa-solid fa-shuffle"></i></div>
+                                <div className="text-xl font-black text-slate-800 mb-1">{t.numConversion}</div>
+                                <div className="text-xs font-bold text-slate-400">{t.descConversion}</div>
+                            </button>
+                            <button onClick={() => startTraining('memory')} className="w-full max-w-sm p-6 bg-emerald-600 text-white rounded-[2rem] shadow-lg active:scale-95 transition-all text-left relative overflow-hidden">
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10"></div>
+                                <div className="relative z-10">
+                                    <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center text-white mb-4 text-2xl"><i className="fa-solid fa-brain"></i></div>
+                                    <div className="text-xl font-black mb-1">{t.numMemory}</div>
+                                    <div className="text-xs font-bold text-emerald-100">{t.descMemory}</div>
+                                </div>
+                            </button>
+                        </div>
+
+                        {isSettingsOpen && <NumberSettingsModal settings={settings} updateSettings={updateSettings} onClose={() => setIsSettingsOpen(false)} t={t} />}
+                    </div>
+                );
+            }
+
+            if (gameState === 'countdown') return <div className="h-full flex items-center justify-center bg-emerald-600 text-white"><div className="text-8xl font-black animate-countdown px-4 text-center">{countdownText}</div></div>;
+
+            if (gameState === 'memorization') {
+                const currentBatch = sequence.slice(currentIndex, currentIndex + settings.imagesPerView);
+                return (
+                    <div className="h-full flex flex-col p-6 bg-emerald-50">
+                        <div className="flex justify-between items-center mb-10">
+                             <div className="text-sm font-bold text-emerald-600 uppercase tracking-widest">{trainingType === 'conversion' ? t.numConversion : t.memorization}</div>
+                             <div className="text-xs font-bold text-slate-400">{currentIndex} / {sequence.length}</div>
+                        </div>
+                        <div className="flex-grow flex flex-col items-center justify-center">
+                            <div className="text-6xl sm:text-8xl font-mono font-black text-emerald-800 text-center tracking-tight leading-tight">
+                                {currentBatch.join(settings.separator ? settings.separator : ' ')}
+                            </div>
+                        </div>
+                        <button onClick={handleNext} className="w-full py-8 bg-white text-emerald-600 text-2xl font-black rounded-[2rem] shadow-xl active:scale-95 transition-all">
+                            {currentIndex + settings.imagesPerView >= sequence.length ? (trainingType === 'memory' ? t.recall : t.finish) : t.next}
+                        </button>
+                    </div>
+                );
+            }
+
+            if (gameState === 'recall') {
+                return (
+                    <div className="h-full flex flex-col p-4 bg-slate-50">
+                        <div className="mb-4">
+                             <div className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-2">{t.recallInput}</div>
+                             <div className="w-full h-32 bg-white rounded-2xl border-2 border-slate-200 p-4 font-mono text-2xl font-bold text-slate-800 overflow-y-auto break-all tracking-widest shadow-inner">
+                                {formatRecallString(userInput) || <span className="text-slate-300">{t.inputPlace}</span>}
+                             </div>
+                        </div>
+                        <div className="flex-grow grid grid-cols-3 gap-3 mb-4">
+                            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => (
+                                <button key={n} onClick={() => handleRecallInput(n.toString())} className="bg-white rounded-2xl shadow-sm border-b-4 border-slate-100 active:border-b-0 active:translate-y-1 transition-all text-3xl font-bold text-slate-700 flex items-center justify-center">{n}</button>
+                            ))}
+                            <button onClick={handleBackspace} className="bg-red-50 text-red-500 rounded-2xl shadow-sm border-b-4 border-red-100 active:border-b-0 active:translate-y-1 transition-all text-xl font-bold flex items-center justify-center"><i className="fa-solid fa-delete-left"></i></button>
+                            <button onClick={() => handleRecallInput('0')} className="bg-white rounded-2xl shadow-sm border-b-4 border-slate-100 active:border-b-0 active:translate-y-1 transition-all text-3xl font-bold text-slate-700 flex items-center justify-center">0</button>
+                            <button onClick={finishRecall} className="bg-emerald-600 text-white rounded-2xl shadow-lg border-b-4 border-emerald-800 active:border-b-0 active:translate-y-1 transition-all text-xl font-bold flex items-center justify-center">{t.checkResult}</button>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (gameState === 'result') {
+                const { correct, total } = calculateScore();
+                const time = endTime - startTime;
+                const fullSeq = sequence.join('');
+
+                return (
+                    <div className="h-full flex flex-col p-4 overflow-y-auto no-scrollbar">
+                        <div className="flex justify-between items-center mb-6 pt-2">
+                            <h2 className="text-2xl font-black text-slate-800"><i className="fa-solid fa-square-check text-emerald-500 mr-2"></i> {t.result}</h2>
+                            <button onClick={() => setGameState('menu')} className="w-10 h-10 flex items-center justify-center bg-slate-100 rounded-full text-slate-500"><i className="fa-solid fa-xmark"></i></button>
+                        </div>
+                        
+                        <div className="bg-white rounded-[2rem] p-6 shadow-xl mb-6 border border-slate-100">
+                             <div className="grid grid-cols-2 gap-4 text-center">
+                                 <div>
+                                     <div className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t.correctRate}</div>
+                                     <div className="text-3xl font-black text-slate-800">{correct} <span className="text-lg text-slate-400">/ {total}</span></div>
+                                 </div>
+                                 <div>
+                                     <div className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t.rawTime}</div>
+                                     <div className="text-3xl font-black text-slate-800">{formatTime(time)}</div>
+                                 </div>
+                             </div>
+                        </div>
+
+                        <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 mb-6 flex-grow overflow-y-auto">
+                            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">DETAILS</h3>
+                            <div className="font-mono text-lg break-all tracking-widest leading-loose">
+                                {fullSeq.split('').map((char, i) => {
+                                    const userChar = userInput[i];
+                                    let color = 'text-slate-300';
+                                    if (userChar === char) color = 'text-emerald-600 font-bold';
+                                    else if (userChar) color = 'text-red-500 font-bold bg-red-50';
+                                    
+                                    return <span key={i} className={color}>{char}</span>;
+                                })}
+                            </div>
+                        </div>
+
+                        <button onClick={() => startTraining('memory')} className="w-full py-6 bg-emerald-600 text-white text-xl font-black rounded-[2rem] shadow-lg active:scale-95 transition-all mb-4">
+                            <i className="fa-solid fa-rotate-right mr-2"></i> {t.retry}
+                        </button>
+                    </div>
+                );
+            }
+            return null;
         };
 
         const LetterPairTrainer = ({ onBack, globalSettings, t }) => {
@@ -845,6 +1531,7 @@
             const modes = [
                 { id: 'calendar', label: t.calendar, icon: 'fa-calendar-days', color: 'bg-indigo-500', desc: t.descCal },
                 { id: 'number', label: t.number, icon: 'fa-hashtag', color: 'bg-emerald-500', desc: t.descNum },
+                { id: 'card', label: t.card, icon: 'fa-diamond', color: 'bg-rose-500', desc: t.descCard },
                 { id: 'letterpair', label: t.letter, icon: 'fa-language', color: 'bg-amber-500', desc: t.descLet }
             ];
             return (
@@ -904,6 +1591,7 @@
                     )}
                     {mode === 'calendar' && <CalendarTrainer t={t} globalSettings={globalSettings} onBack={() => setMode('home')} />}
                     {mode === 'number' && <NumberTrainer t={t} globalSettings={globalSettings} onBack={() => setMode('home')} />}
+                    {mode === 'card' && <CardTrainer t={t} globalSettings={globalSettings} onBack={() => setMode('home')} />}
                     {mode === 'letterpair' && <LetterPairTrainer t={t} globalSettings={globalSettings} onBack={() => setMode('home')} />}
                     
                     {isGlobalSettingsOpen && (
