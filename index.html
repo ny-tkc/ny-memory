@@ -44,6 +44,12 @@
         .card-shadow {
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
         }
+
+        @keyframes pop-in {
+            0% { transform: scale(0.5); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .animate-pop { animation: pop-in 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
     </style>
 <link rel="stylesheet" href="/index.css">
 </head>
@@ -114,7 +120,7 @@
                 recall: '回答へ', memorization: '記憶', totalDigits: '総数',
                 qCount: '出題数', edit: 'イメージ編集', alwaysShow: '初めから答えを表示', rowSelect: '行選択',
                 digitsPerGroup: '1イメージの桁数', totalDigitsNum: '出題数 (記憶練習)', endless: 'エンドレス', fiveSecPenalty: 'ミス1つにつき5秒加算',
-                mentalMath: '暗算練習', mentalMathDesc: '計算のあまりを求める', remainder: 'あまり', showAnswer: '答えを表示', calcStart: '日付計算スタート'
+                mentalMath: '暗算練習', mentalMathDesc: '10問タイムアタック', remainder: 'あまり', showAnswer: '答えを表示', calcStart: '日付計算スタート'
             },
             en: {
                 appTitle: 'MemoryPro', calendar: 'Calendar Calc', number: 'Number Memory', letter: 'Letter Pair', card: 'Card Memory',
@@ -134,12 +140,12 @@
                 recall: 'Recall', memorization: 'Memorize', totalDigits: 'Total',
                 qCount: 'Count', edit: 'Edit Image', alwaysShow: 'Show Answer Always', rowSelect: 'Row Select',
                 digitsPerGroup: 'Digits per Image', totalDigitsNum: 'Total Digits (Memory)', endless: 'Endless', fiveSecPenalty: '+5s per mistake',
-                mentalMath: 'Mental Math', mentalMathDesc: 'Calc Remainder', remainder: 'Remainder', showAnswer: 'Show Answer', calcStart: 'Start Date Calc'
+                mentalMath: 'Mental Math', mentalMathDesc: '10 Questions Time Attack', remainder: 'Remainder', showAnswer: 'Show Answer', calcStart: 'Start Date Calc'
             }
         };
 
         const handleHomeWithConfirm = (gameState, onBack, t) => {
-            if (gameState !== 'menu' && gameState !== 'idle' && gameState !== 'finished' && gameState !== 'result') {
+            if (gameState !== 'menu' && gameState !== 'idle' && gameState !== 'finished' && gameState !== 'result' && gameState !== 'math_result') {
                 if (window.confirm(t.confirmQuit)) onBack();
             } else {
                 onBack();
@@ -292,8 +298,14 @@
             const [currentTime, setCurrentTime] = useState(0);
             const [feedback, setFeedback] = useState(null);
             const [countdownText, setCountdownText] = useState('');
+            
+            // Mental Math States
             const [mathQuestion, setMathQuestion] = useState(null);
-            const [showMathAnswer, setShowMathAnswer] = useState(false);
+            const [mathStats, setMathStats] = useState({ count: 0, correct: 0 });
+            const [mathFeedback, setMathFeedback] = useState(null);
+            const [mathStartTime, setMathStartTime] = useState(0);
+            const [mathEndTime, setMathEndTime] = useState(0);
+            const [mathRecords, setMathRecords] = useState(() => JSON.parse(localStorage.getItem('calendar_math_records_v2') || '[]'));
 
             const [settings, setSettings] = useState(() => {
                 const saved = localStorage.getItem('calendar_settings');
@@ -305,13 +317,13 @@
 
             const timerRef = useRef(null);
             const updateTimer = useCallback(() => {
-                if (gameState === 'playing') {
+                if (gameState === 'playing' || gameState === 'playing_math') {
                     setCurrentTime(performance.now());
                     timerRef.current = requestAnimationFrame(updateTimer);
                 }
             }, [gameState]);
             useEffect(() => {
-                if (gameState === 'playing') timerRef.current = requestAnimationFrame(updateTimer);
+                if (gameState === 'playing' || gameState === 'playing_math') timerRef.current = requestAnimationFrame(updateTimer);
                 else if (timerRef.current) cancelAnimationFrame(timerRef.current);
                 return () => { if (timerRef.current) cancelAnimationFrame(timerRef.current); };
             }, [gameState, updateTimer]);
@@ -374,20 +386,98 @@
                 }, 300);
             };
 
+            // --- Mental Math Logic ---
             const generateMathQuestion = () => {
                 const n1 = Math.random() < 0.5 ? 0 : 1; 
                 const n2 = Math.floor(Math.random() * 7);
                 const n3 = Math.floor(Math.random() * 7); 
                 const n4 = Math.floor(Math.random() * 31) + 1;
-                setMathQuestion({ n1, n2, n3, n4 });
-                setShowMathAnswer(false);
+                return { n1, n2, n3, n4, answer: (n1 + n2 + n3 + n4) % 7 };
             };
 
-            const startMathMode = () => {
-                generateMathQuestion();
+            const startMathCountdown = () => {
+                setGameState('math_countdown');
+                let count = settings.countdownSeconds;
+                setCountdownText(count.toString());
+                const interval = setInterval(() => {
+                    count--;
+                    if (count === 0) setCountdownText('START!');
+                    else if (count < 0) { clearInterval(interval); startMathGame(); }
+                    else setCountdownText(count.toString());
+                }, 1000);
+            };
+
+            const startMathGame = () => {
                 setGameState('playing_math');
+                setMathStats({ count: 1, correct: 0 });
+                setMathFeedback(null);
+                setMathQuestion(generateMathQuestion());
+                const now = performance.now();
+                setMathStartTime(now);
+                setCurrentTime(now);
+                setIsNewRecord(false);
             };
 
+            const handleMathAnswer = (val) => {
+                if(mathFeedback) return;
+                const isCorrect = val === mathQuestion.answer;
+                setMathFeedback(isCorrect ? 'correct' : 'wrong');
+                
+                const newCorrect = mathStats.correct + (isCorrect ? 1 : 0);
+                
+                setTimeout(() => {
+                    setMathFeedback(null);
+                    if(mathStats.count < 10) {
+                        setMathStats(prev => ({ count: prev.count + 1, correct: newCorrect }));
+                        setMathQuestion(generateMathQuestion());
+                    } else {
+                        finishMathGame(newCorrect);
+                    }
+                }, 300);
+            };
+
+            const finishMathGame = (finalCorrect) => {
+                const endTime = performance.now();
+                setMathEndTime(endTime);
+                
+                const rawTime = endTime - mathStartTime;
+                const mistakes = 10 - finalCorrect;
+                const penalty = mistakes * 5000;
+                const totalScore = rawTime + penalty;
+                const avgScore = totalScore / 10;
+                
+                const newRecord = { 
+                    timestamp: Date.now(), 
+                    rawTime, 
+                    correct: finalCorrect, 
+                    penalty,
+                    totalScore,
+                    avgScore 
+                };
+                
+                const currentRecords = [...mathRecords];
+                const updatedRecords = [...currentRecords, newRecord].sort((a,b) => a.totalScore - b.totalScore).slice(0, 50);
+                
+                localStorage.setItem('calendar_math_records_v2', JSON.stringify(updatedRecords));
+                setMathRecords(updatedRecords);
+                
+                if (updatedRecords.length > 0 && updatedRecords[0].timestamp === newRecord.timestamp) {
+                     setIsNewRecord(true);
+                     confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+                } else {
+                     setIsNewRecord(false);
+                }
+
+                setMathStats(prev => ({ ...prev, correct: finalCorrect, penalty, totalScore, avgScore, rawTime }));
+                setGameState('math_result');
+            };
+
+            const getMathBestScore = () => {
+                if(mathRecords.length === 0) return null;
+                return mathRecords[0].avgScore;
+            };
+
+            // --- Common ---
             const getBestScore = (range) => {
                 const records = JSON.parse(localStorage.getItem('calendar_records') || '[]');
                 const filtered = records.filter(r => r.range === range);
@@ -431,7 +521,7 @@
                             <div className="absolute right-6 top-1/2 -translate-y-1/2 text-4xl opacity-20 group-hover:scale-110 transition-transform"><i className="fa-solid fa-play"></i></div>
                         </button>
 
-                        <button onClick={startMathMode} className="w-full py-6 bg-white border-2 border-indigo-100 text-indigo-600 rounded-[2rem] shadow-sm active:scale-95 transition-all text-left px-8 relative overflow-hidden group hover:border-indigo-200">
+                        <button onClick={startMathCountdown} className="w-full py-6 bg-white border-2 border-indigo-100 text-indigo-600 rounded-[2rem] shadow-sm active:scale-95 transition-all text-left px-8 relative overflow-hidden group hover:border-indigo-200">
                             <div className="relative z-10">
                                 <div className="text-xl font-black mb-1">{t.mentalMath}</div>
                                 <div className="text-xs font-bold text-slate-400">{t.mentalMathDesc}</div>
@@ -459,7 +549,7 @@
                     {isHistoryOpen && <HistoryModal history={JSON.parse(localStorage.getItem('calendar_history') || '[]')} range={selectedRange} onClose={() => setIsHistoryOpen(false)} t={t} formatTime={formatTime} />}
                 </div>
             );
-            if (gameState === 'countdown') return <div className="h-full flex items-center justify-center bg-indigo-600 text-white"><div className="text-8xl font-black animate-countdown px-4 text-center">{countdownText}</div></div>;
+            if (gameState === 'countdown' || gameState === 'math_countdown') return <div className="h-full flex items-center justify-center bg-indigo-600 text-white"><div className="text-8xl font-black animate-countdown px-4 text-center">{countdownText}</div></div>;
             if (gameState === 'playing') return (
                 <div className="h-full flex flex-col p-4 overflow-hidden">
                     <div className="flex justify-between items-start mb-2 flex-none">
@@ -480,43 +570,117 @@
             if (gameState === 'playing_math') {
                 return (
                     <div className="h-full flex flex-col p-6 bg-indigo-50">
-                        <div className="flex justify-between items-center mb-10">
-                            <div className="flex items-center gap-4">
-                                <button onClick={handleHomeClick} className="w-8 h-8 flex items-center justify-center bg-white/50 rounded-full text-indigo-700 hover:bg-white transition-colors"><i className="fa-solid fa-house text-xs"></i></button>
-                                <div className="text-sm font-bold text-indigo-600 uppercase tracking-widest">{t.mentalMath}</div>
+                        {/* Header */}
+                        <div className="flex justify-between items-start mb-6 flex-none">
+                            <button onClick={handleHomeClick} className="text-indigo-300 hover:text-indigo-600 py-2"><i className="fa-solid fa-house"></i></button>
+                            <div className="flex flex-col items-center">
+                                <span className="text-5xl font-mono font-black text-slate-800 tracking-tighter">
+                                    {formatTime(currentTime - mathStartTime, settings.timerFormat)}
+                                </span>
                             </div>
+                            <div className="w-8"></div>
                         </div>
-                        <div className="flex-grow flex flex-col items-center justify-center">
-                            <div className="text-5xl sm:text-6xl font-black text-slate-700 mb-8 flex flex-wrap justify-center gap-2">
-                                <span>{mathQuestion.n1}</span>
-                                <span className="text-indigo-400">+</span>
-                                <span>{mathQuestion.n2}</span>
-                                <span className="text-indigo-400">+</span>
-                                <span>{mathQuestion.n3}</span>
-                                <span className="text-indigo-400">+</span>
-                                <span>{mathQuestion.n4}</span>
-                            </div>
-                            
-                            <div className="h-32 flex items-center justify-center w-full">
-                                {showMathAnswer ? (
-                                    <div className="flex flex-col items-center animate-in fade-in slide-in-from-bottom-4 duration-300">
-                                        <div className="text-xs font-bold text-indigo-400 uppercase tracking-widest mb-1">{t.remainder}</div>
-                                        <div className="text-7xl font-black text-indigo-600 mb-4 text-center">
-                                            {(mathQuestion.n1 + mathQuestion.n2 + mathQuestion.n3 + mathQuestion.n4) % 7}
-                                        </div>
+
+                        {/* Progress */}
+                        <div className="text-center mb-8 flex-none">
+                             <span className="text-xs font-black text-indigo-400 uppercase tracking-widest bg-white px-3 py-1 rounded-full">{mathStats.count} / 10</span>
+                        </div>
+
+                        {/* Question Area */}
+                        <div className="flex-grow flex flex-col items-center justify-center relative">
+                            {/* Feedback Overlay */}
+                            {mathFeedback && (
+                                <div className="absolute inset-0 flex items-center justify-center z-10 animate-pop">
+                                    {mathFeedback === 'correct' 
+                                        ? <i className="fa-regular fa-circle text-9xl text-green-500 opacity-80 drop-shadow-lg"></i>
+                                        : <i className="fa-solid fa-xmark text-9xl text-red-500 opacity-80 drop-shadow-lg"></i>
+                                    }
+                                </div>
+                            )}
+
+                            <div className="bg-white p-8 rounded-[2rem] shadow-sm w-full max-w-sm border-2 border-indigo-100">
+                                <div className="text-4xl sm:text-5xl font-black text-slate-700 text-center tracking-tight mb-4 flex justify-center gap-1 sm:gap-2">
+                                    <span>{mathQuestion.n1}</span>
+                                    <span className="text-indigo-300">+</span>
+                                    <span>{mathQuestion.n2}</span>
+                                    <span className="text-indigo-300">+</span>
+                                    <span>{mathQuestion.n3}</span>
+                                    <span className="text-indigo-300">+</span>
+                                    <span>{mathQuestion.n4}</span>
+                                </div>
+                                <div className="flex justify-center">
+                                    <div className="inline-block border-t-4 border-indigo-100 px-10 pt-2 text-2xl font-bold text-slate-400">
+                                        ÷ 7
                                     </div>
-                                ) : (
-                                    <button onClick={() => setShowMathAnswer(true)} className="px-8 py-4 bg-white text-indigo-600 font-bold rounded-2xl shadow-lg border-2 border-indigo-100 hover:border-indigo-300 transition-all">{t.showAnswer}</button>
-                                )}
+                                </div>
                             </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-4 mt-auto">
-                            <button onClick={() => setGameState('idle')} className="w-full py-6 bg-white text-slate-400 font-black rounded-[2rem] shadow-sm active:scale-95 transition-all">{t.finish}</button>
-                            <button onClick={generateMathQuestion} className="w-full py-6 bg-indigo-600 text-white font-black rounded-[2rem] shadow-lg active:scale-95 transition-all">{t.next}</button>
+
+                        {/* Keypad */}
+                        <div className="mt-auto pt-8 max-w-sm mx-auto w-full">
+                            <div className="grid grid-cols-3 gap-3">
+                                {[1, 2, 3, 4, 5, 6].map(n => (
+                                    <button key={n} onClick={() => handleMathAnswer(n)} className="h-20 bg-white rounded-2xl shadow-sm border-b-4 border-slate-200 active:border-b-0 active:translate-y-1 active:bg-slate-50 transition-all text-3xl font-black text-slate-700">
+                                        {n}
+                                    </button>
+                                ))}
+                                <div className="col-start-2">
+                                     <button onClick={() => handleMathAnswer(0)} className="w-full h-20 bg-white rounded-2xl shadow-sm border-b-4 border-slate-200 active:border-b-0 active:translate-y-1 active:bg-slate-50 transition-all text-3xl font-black text-slate-700">
+                                        0
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 );
             }
+            if (gameState === 'math_result') {
+                 const bestAvg = getMathBestScore();
+                 return (
+                    <div className="h-full flex flex-col p-4 overflow-y-auto no-scrollbar">
+                        <div className="flex justify-between items-center mb-6 pt-2">
+                            <div><h2 className="text-2xl font-black flex items-center gap-3 text-slate-800"><i className="fa-solid fa-calculator text-indigo-500"></i> {t.result}</h2></div>
+                            <div className="flex gap-2"><button onClick={handleHomeClick} className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-slate-500 shadow-sm transition-all hover:text-indigo-600"><i className="fa-solid fa-house"></i></button></div>
+                        </div>
+                        
+                        <div className="w-full bg-indigo-600 text-white rounded-[2.5rem] p-8 sm:p-10 mb-8 shadow-2xl relative flex flex-col items-center text-center">
+                            {isNewRecord && (<div className="absolute top-0 right-0 bg-yellow-400 text-yellow-900 text-[10px] font-black px-4 py-1.5 rounded-bl-2xl uppercase tracking-widest shadow-md">{t.newRecord}</div>)}
+                            <div className="text-[11px] font-black opacity-60 uppercase tracking-widest mb-1">{t.finalScore} <span className="text-[10px] opacity-80 normal-case">(Avg)</span></div>
+                            <div className="text-6xl sm:text-7xl font-mono font-black mb-4 tracking-tighter drop-shadow-lg truncate w-full">
+                                {formatTime(mathStats.avgScore, 'ss')}
+                            </div>
+                            
+                            <div className="flex items-center gap-2 mb-10 bg-black/10 px-5 py-2 rounded-full">
+                                <i className="fa-solid fa-crown text-yellow-400 text-xs"></i>
+                                <span className="text-sm font-black tracking-widest uppercase">{t.bestScore}: {bestAvg ? formatTime(bestAvg, 'ss') : '-'}</span>
+                            </div>
+
+                            <div className="w-full pt-8 border-t border-white/20">
+                                <div className="grid grid-cols-2 gap-4">
+                                     <div className="flex flex-col items-center">
+                                        <div className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-1">{t.rawTime}</div>
+                                        <div className="font-mono font-black text-xl tracking-tight">{formatTime(mathStats.rawTime, settings.timerFormat)}</div>
+                                    </div>
+                                    <div className="flex flex-col items-center">
+                                        <div className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-1">{t.penalty}</div>
+                                        <div className="font-mono font-black text-xl tracking-tight text-red-300">+{mathStats.penalty / 1000}s</div>
+                                    </div>
+                                </div>
+                                <div className="mt-4 flex flex-col items-center">
+                                    <div className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-1">{t.accuracy}</div>
+                                    <div className="font-mono font-black text-2xl tracking-tight">{mathStats.correct} / 10</div>
+                                </div>
+                            </div>
+                        </div>
+
+                         <div className="space-y-4 pb-12 mt-auto">
+                            <button onClick={startMathCountdown} className="w-full py-6 bg-indigo-600 text-white text-xl font-black rounded-[2rem] shadow-lg hover:shadow-xl active:scale-95 transition-all"><i className="fa-solid fa-rotate-right mr-3"></i> {t.retry}</button>
+                            <button onClick={() => setGameState('idle')} className="w-full py-6 bg-white border-2 border-slate-100 text-slate-600 text-xl font-black rounded-[2rem] active:scale-95 transition-all"><i className="fa-solid fa-sliders mr-3"></i> {t.back}</button>
+                        </div>
+                    </div>
+                 );
+            }
+
             if (gameState === 'finished') {
                 if (!currentResult) return null; const avg = currentResult.totalTime / 5; const best = getBestScore(selectedRange); const correctCount = currentResult.laps.filter(l => l.correct).length;
                 return (
