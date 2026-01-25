@@ -112,7 +112,8 @@
                 separator: '区切り文字', noDuplicates: '重複なし', rangeStart: '開始番号', rangeEnd: '終了番号', autoNextSpeed: '自動送り速度',
                 recallInput: '回答入力', checkResult: '採点する', correctRate: '正解率', inputPlace: '入力待機...', none: '(無し)', finish: '終了',
                 recall: '回答へ', memorization: '記憶', totalDigits: '総数',
-                qCount: '出題数', edit: 'イメージ編集', alwaysShow: '初めから答えを表示', rowSelect: '行選択'
+                qCount: '出題数', edit: 'イメージ編集', alwaysShow: '初めから答えを表示', rowSelect: '行選択',
+                digitsPerGroup: '1イメージの桁数', totalDigitsNum: '出題数 (記憶練習)', endless: 'エンドレス', fiveSecPenalty: 'ミス1つにつき5秒加算'
             },
             en: {
                 appTitle: 'MemoryPro', calendar: 'Calendar Calc', number: 'Number Memory', letter: 'Letter Pair', card: 'Card Memory',
@@ -130,7 +131,8 @@
                 separator: 'Separator', noDuplicates: 'No Dupes', rangeStart: 'Start #', rangeEnd: 'End #', autoNextSpeed: 'Auto Speed',
                 recallInput: 'Recall Input', checkResult: 'Check', correctRate: 'Accuracy', inputPlace: 'Waiting...', none: '(None)', finish: 'Finish',
                 recall: 'Recall', memorization: 'Memorize', totalDigits: 'Total',
-                qCount: 'Count', edit: 'Edit Image', alwaysShow: 'Show Answer Always', rowSelect: 'Row Select'
+                qCount: 'Count', edit: 'Edit Image', alwaysShow: 'Show Answer Always', rowSelect: 'Row Select',
+                digitsPerGroup: 'Digits per Image', totalDigitsNum: 'Total Digits (Memory)', endless: 'Endless', fiveSecPenalty: '+5s per mistake'
             }
         };
 
@@ -242,7 +244,7 @@
                         <div className="overflow-y-auto no-scrollbar space-y-3 flex-grow">
                             {top10.length === 0 && <div className="text-center text-slate-400 py-4 font-bold">{t.noData}</div>}
                             {top10.map((h, i) => {
-                                const correctCount = h.laps.filter(l => l.correct).length;
+                                const correctCount = h.laps ? h.laps.filter(l => l.correct).length : (h.accuracy || 0);
                                 const isExpanded = expandedId === i;
                                 return (
                                     <div key={i} className={`p-4 rounded-xl border transition-all cursor-pointer ${isExpanded ? 'bg-indigo-50 border-indigo-200 shadow-sm' : 'bg-slate-50 border-slate-100 hover:bg-slate-100'}`} onClick={() => toggle(i)}>
@@ -259,7 +261,7 @@
                                             <div className="mt-4 pt-4 border-t border-indigo-100 space-y-3">
                                                 <div className="flex justify-between text-xs font-bold">
                                                     <span className="text-slate-400 uppercase">{t.accuracy}</span>
-                                                    <span className="text-indigo-600">{correctCount} / 5</span>
+                                                    <span className="text-indigo-600">{h.accuracy !== undefined ? h.accuracy : correctCount}</span>
                                                 </div>
                                                 <div className="flex justify-between text-xs font-bold">
                                                     <span className="text-slate-400 uppercase">{t.penalty}</span>
@@ -769,14 +771,27 @@
                             <button onClick={onClose} className="w-8 h-8 flex items-center justify-center bg-slate-100 rounded-full text-slate-500 hover:bg-slate-200"><i className="fa-solid fa-xmark"></i></button>
                         </div>
                         <div className="space-y-5">
-                            <section><label className="text-xs font-bold text-slate-400 uppercase mb-2 block tracking-widest">{t.range}</label><div className="flex gap-2 items-center"><div className="flex-1"><span className="text-[10px] text-slate-400 block mb-1">{t.rangeStart}</span><input type="number" min="0" max="99" value={settings.rangeStart} onChange={(e) => updateSettings('rangeStart', Math.max(0, Math.min(99, parseInt(e.target.value)||0)))} className="w-full p-2 border-2 border-slate-100 rounded-xl font-bold text-center text-slate-700 focus:border-emerald-500 outline-none" /></div><span className="text-slate-300">~</span><div className="flex-1"><span className="text-[10px] text-slate-400 block mb-1">{t.rangeEnd}</span><input type="number" min="0" max="99" value={settings.rangeEnd} onChange={(e) => updateSettings('rangeEnd', Math.max(0, Math.min(99, parseInt(e.target.value)||0)))} className="w-full p-2 border-2 border-slate-100 rounded-xl font-bold text-center text-slate-700 focus:border-emerald-500 outline-none" /></div></div></section>
-                            <section><label className="text-xs font-bold text-slate-400 uppercase mb-2 block tracking-widest">{t.bunchCount}</label><select value={settings.bunchCount} onChange={(e) => updateSettings('bunchCount', parseInt(e.target.value))} className="w-full p-2.5 border-2 border-slate-100 rounded-xl font-bold text-slate-700 bg-white">{[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}</option>)}</select></section>
-                            <section><label className="text-xs font-bold text-slate-400 uppercase mb-2 block tracking-widest">{t.digitsPerBunch}</label><select value={settings.digitsPerBunch} onChange={(e) => updateSettings('digitsPerBunch', parseInt(e.target.value))} className="w-full p-2.5 border-2 border-slate-100 rounded-xl font-bold text-slate-700 bg-white">{[10, 20, 40, 50, 80, 100].map(n => <option key={n} value={n}>{n}</option>)}</select></section>
-                            <section><label className="text-xs font-bold text-slate-400 uppercase mb-2 block tracking-widest">{t.digitsPerImage}</label><select value={settings.digitsPerImage} onChange={(e) => updateSettings('digitsPerImage', parseInt(e.target.value))} className="w-full p-2.5 border-2 border-slate-100 rounded-xl font-bold text-slate-700 bg-white">{[1, 2, 3, 4].map(n => <option key={n} value={n}>{n}</option>)}</select></section>
-                            <section><label className="text-xs font-bold text-slate-400 uppercase mb-2 block tracking-widest">{t.imagesPerView}</label><select value={settings.imagesPerView} onChange={(e) => updateSettings('imagesPerView', parseInt(e.target.value))} className="w-full p-2.5 border-2 border-slate-100 rounded-xl font-bold text-slate-700 bg-white">{[1, 2, 4, 8].map(n => <option key={n} value={n}>{n} {t.imagesPerView}</option>)}</select></section>
-                            <section><label className="text-xs font-bold text-slate-400 uppercase mb-2 block tracking-widest">{t.separator}</label><input type="text" value={settings.separator} onChange={(e) => updateSettings('separator', e.target.value)} placeholder={t.none} className="w-full p-2.5 border-2 border-slate-100 rounded-xl font-bold text-slate-700" /></section>
-                            <section><label className="flex items-center gap-3 p-3 border-2 border-slate-100 rounded-xl cursor-pointer"><input type="checkbox" checked={settings.noDuplicates} onChange={(e) => updateSettings('noDuplicates', e.target.checked)} className="w-5 h-5 accent-emerald-500" /><span className="font-bold text-sm text-slate-700">{t.noDuplicates}</span></label></section>
-                            <section><label className="text-xs font-bold text-slate-400 uppercase mb-2 block tracking-widest">{t.autoNextSpeed}</label><select value={settings.autoNext} onChange={(e) => updateSettings('autoNext', parseFloat(e.target.value))} className="w-full p-2.5 border-2 border-slate-100 rounded-xl font-bold text-slate-700 bg-white"><option value={0}>{t.autoNextOff}</option>{[0.5, 1.0, 1.5, 2.0, 3.0, 5.0].map(n => <option key={n} value={n}>{n}s</option>)}</select></section>
+                            <section>
+                                <label className="text-xs font-bold text-slate-400 uppercase mb-2 block tracking-widest">{t.digitsPerGroup}</label>
+                                <select value={settings.digitsPerGroup} onChange={(e) => updateSettings('digitsPerGroup', parseInt(e.target.value))} className="w-full p-2.5 border-2 border-slate-100 rounded-xl font-bold text-slate-700 bg-white">
+                                    {[1, 2, 3, 4].map(n => <option key={n} value={n}>{n}</option>)}
+                                </select>
+                            </section>
+                            <section>
+                                <label className="text-xs font-bold text-slate-400 uppercase mb-2 block tracking-widest">{t.totalDigitsNum}</label>
+                                <input type="number" min="1" max="1000" value={settings.totalDigits} onChange={(e) => updateSettings('totalDigits', Math.max(1, parseInt(e.target.value)||80))} className="w-full p-2.5 border-2 border-slate-100 rounded-xl font-bold text-center text-slate-700 bg-white" />
+                            </section>
+                            <section>
+                                <label className="text-xs font-bold text-slate-400 uppercase mb-2 block tracking-widest">{t.countdown}</label>
+                                <div className="grid grid-cols-3 gap-2">{[3, 5, 10].map(s => <button key={s} onClick={() => updateSettings('countdownSeconds', s)} className={`py-2.5 rounded-xl border-2 font-bold text-sm transition-all ${settings.countdownSeconds === s ? 'bg-emerald-50 border-emerald-600 text-emerald-600' : 'border-slate-50 bg-slate-50 text-slate-400'}`}>{s}{t.sec}</button>)}</div>
+                            </section>
+                            <section>
+                                <label className="text-xs font-bold text-slate-400 uppercase mb-2 block tracking-widest">{t.autoNextSpeed}</label>
+                                <select value={settings.autoNext} onChange={(e) => updateSettings('autoNext', parseFloat(e.target.value))} className="w-full p-2.5 border-2 border-slate-100 rounded-xl font-bold text-slate-700 bg-white">
+                                    <option value={0}>{t.autoNextOff}</option>
+                                    {[0.5, 1.0, 1.5, 2.0, 3.0, 5.0].map(n => <option key={n} value={n}>{n}s</option>)}
+                                </select>
+                            </section>
                         </div>
                         <button onClick={onClose} className="w-full mt-8 py-4 bg-slate-900 text-white font-bold rounded-2xl shadow-lg active:scale-95 transition-all">{t.back}</button>
                     </div>
@@ -794,30 +809,109 @@
             const [countdownText, setCountdownText] = useState('');
             const [startTime, setStartTime] = useState(0);
             const [endTime, setEndTime] = useState(0);
-            
+            const [endlessNumber, setEndlessNumber] = useState('');
+            const [isNewRecord, setIsNewRecord] = useState(false);
+
             const [settings, setSettings] = useState(() => {
-                const saved = localStorage.getItem('number_settings_v2');
-                return saved ? JSON.parse(saved) : { rangeStart: 0, rangeEnd: 99, bunchCount: 1, digitsPerBunch: 40, digitsPerImage: 2, imagesPerView: 1, separator: '', noDuplicates: false, autoNext: 0, countdownSeconds: 3 };
+                const saved = localStorage.getItem('number_settings_v3');
+                return saved ? JSON.parse(saved) : { digitsPerGroup: 2, totalDigits: 80, countdownSeconds: 3, autoNext: 0 };
             });
 
-            const updateSettings = (key, val) => { const ns = {...settings, [key]: val}; setSettings(ns); localStorage.setItem('number_settings_v2', JSON.stringify(ns)); };
+            const updateSettings = (key, val) => { const ns = {...settings, [key]: val}; setSettings(ns); localStorage.setItem('number_settings_v3', JSON.stringify(ns)); };
+            
+            // Generate sequence for Memory Mode
             const generateSequence = useCallback(() => {
-                const totalDigits = settings.bunchCount * settings.digitsPerBunch; const totalItems = Math.ceil(totalDigits / settings.digitsPerImage); const newSeq = []; const rangeSize = settings.rangeEnd - settings.rangeStart + 1;
-                for(let i=0; i<totalItems; i++) {
-                    let num;
-                    if(settings.noDuplicates && rangeSize >= totalItems) { do { num = Math.floor(Math.random() * (settings.rangeEnd - settings.rangeStart + 1)) + settings.rangeStart; } while (newSeq.includes(num.toString().padStart(settings.digitsPerImage, '0'))); } else { num = Math.floor(Math.random() * (settings.rangeEnd - settings.rangeStart + 1)) + settings.rangeStart; }
-                    let s = num.toString(); while(s.length < settings.digitsPerImage) s = "0" + s; newSeq.push(s);
+                const total = settings.totalDigits;
+                const seq = [];
+                for(let i=0; i<total; i++) {
+                     seq.push(Math.floor(Math.random() * 10).toString());
                 }
-                return newSeq;
+                return seq;
             }, [settings]);
-            const startTraining = (type) => { setTrainingType(type); setSequence(generateSequence()); setCurrentIndex(0); setUserInput(""); setGameState('countdown'); let count = settings.countdownSeconds || 3; setCountdownText(count.toString()); const interval = setInterval(() => { count--; if (count === 0) setCountdownText('START!'); else if (count < 0) { clearInterval(interval); setGameState('memorization'); setStartTime(performance.now()); } else setCountdownText(count.toString()); }, 1000); };
-            useEffect(() => { let timer; if(gameState === 'memorization' && settings.autoNext > 0) { timer = setInterval(() => { handleNext(); }, settings.autoNext * 1000); } return () => clearInterval(timer); }, [gameState, currentIndex, settings.autoNext]);
-            const handleNext = () => { const nextIdx = currentIndex + settings.imagesPerView; if(nextIdx >= sequence.length) { if(trainingType === 'memory') { setGameState('recall'); } else { setGameState('menu'); } } else { setCurrentIndex(nextIdx); } };
+
+            // Generate one number for Endless Mode
+            const generateEndlessNumber = useCallback(() => {
+                let num = "";
+                for(let i=0; i<settings.digitsPerGroup; i++) num += Math.floor(Math.random() * 10).toString();
+                return num;
+            }, [settings.digitsPerGroup]);
+
+            const startTraining = (type) => {
+                setTrainingType(type);
+                if (type === 'memory') {
+                    const rawSeq = generateSequence();
+                    // Group raw digits into chunks for display
+                    const chunked = [];
+                    for(let i=0; i<rawSeq.length; i+=settings.digitsPerGroup) {
+                         chunked.push(rawSeq.slice(i, i+settings.digitsPerGroup).join(''));
+                    }
+                    setSequence(chunked);
+                    setCurrentIndex(0);
+                    setUserInput("");
+                } else {
+                    // Conversion Mode
+                    setEndlessNumber(generateEndlessNumber());
+                }
+                
+                setGameState('countdown');
+                let count = settings.countdownSeconds || 3;
+                setCountdownText(count.toString());
+                const interval = setInterval(() => {
+                    count--;
+                    if (count === 0) setCountdownText('START!');
+                    else if (count < 0) { 
+                        clearInterval(interval);
+                        if (type === 'memory') {
+                            setGameState('memorization');
+                            setStartTime(performance.now());
+                        } else {
+                            setGameState('conversion');
+                        }
+                    } else setCountdownText(count.toString());
+                }, 1000);
+            };
+
+            // Auto-next for Memory Mode
+            useEffect(() => {
+                let timer;
+                if(gameState === 'memorization' && settings.autoNext > 0) {
+                    timer = setInterval(() => {
+                        handleNext();
+                    }, settings.autoNext * 1000);
+                }
+                return () => clearInterval(timer);
+            }, [gameState, currentIndex, settings.autoNext]);
+
+            const handleNext = () => {
+                if(trainingType === 'memory') {
+                     if(currentIndex + 1 >= sequence.length) {
+                        setGameState('recall');
+                     } else {
+                        setCurrentIndex(prev => prev + 1);
+                     }
+                } else {
+                    // Conversion mode manual next
+                    setEndlessNumber(generateEndlessNumber());
+                }
+            };
+
             const handleRecallInput = (num) => { setUserInput(prev => prev + num); };
             const handleBackspace = () => { setUserInput(prev => prev.slice(0, -1)); };
-            const finishRecall = () => { setEndTime(performance.now()); setGameState('result'); };
-            const formatRecallString = (str) => { const chunk = settings.digitsPerImage; const chunks = []; for(let i=0; i<str.length; i+=chunk) { chunks.push(str.slice(i, i+chunk)); } return chunks.join(settings.separator || ' '); };
-            const calculateScore = () => { const fullSeq = sequence.join(''); let correct = 0; for(let i=0; i<Math.min(fullSeq.length, userInput.length); i++) { if(fullSeq[i] === userInput[i]) correct++; } return { correct, total: fullSeq.length }; };
+            
+            const finishRecall = () => {
+                setEndTime(performance.now());
+                setGameState('result');
+                checkNewRecord();
+            };
+
+            const checkNewRecord = () => {
+                // Calculation logic inside render or effect, but for record saving we do it here effectively?
+                // Actually easiest to do in render or a useEffect when entering result.
+                // We'll calculate score in render to avoid state dup, but saving needs to be once.
+                // Let's defer saving to the result component mount.
+                setIsNewRecord(false); 
+            };
+
             const handleHomeClick = () => handleHomeWithConfirm(gameState, onBack, t);
 
             if (gameState === 'menu') return (
@@ -833,47 +927,130 @@
 
             if (gameState === 'countdown') return <div className="h-full flex items-center justify-center bg-emerald-600 text-white"><div className="text-8xl font-black animate-countdown px-4 text-center">{countdownText}</div></div>;
 
+            if (gameState === 'conversion') {
+                 return (
+                    <div className="h-full flex flex-col p-6 bg-emerald-50">
+                        <div className="flex justify-between items-center mb-10">
+                            <div className="flex items-center gap-4">
+                                <button onClick={handleHomeClick} className="w-8 h-8 flex items-center justify-center bg-white/50 rounded-full text-emerald-700 hover:bg-white transition-colors"><i className="fa-solid fa-house text-xs"></i></button>
+                                <div className="text-sm font-bold text-emerald-600 uppercase tracking-widest">{t.numConversion}</div>
+                            </div>
+                            <div className="text-xs font-bold text-slate-400">{t.endless}</div>
+                        </div>
+                        <div className="flex-grow flex flex-col items-center justify-center"><div className="text-7xl sm:text-9xl font-mono font-black text-emerald-800 text-center tracking-tight">{endlessNumber}</div></div>
+                        <div className="grid grid-cols-2 gap-4 mt-auto">
+                            <button onClick={() => setGameState('menu')} className="w-full py-6 bg-white text-slate-400 font-black rounded-[2rem] shadow-sm active:scale-95 transition-all">{t.finish}</button>
+                            <button onClick={handleNext} className="w-full py-6 bg-emerald-600 text-white font-black rounded-[2rem] shadow-lg active:scale-95 transition-all">{t.next}</button>
+                        </div>
+                    </div>
+                );
+            }
+
             if (gameState === 'memorization') {
-                const currentBatch = sequence.slice(currentIndex, currentIndex + settings.imagesPerView);
                 return (
                     <div className="h-full flex flex-col p-6 bg-emerald-50">
                         <div className="flex justify-between items-center mb-10">
                             <div className="flex items-center gap-4">
                                 <button onClick={handleHomeClick} className="w-8 h-8 flex items-center justify-center bg-white/50 rounded-full text-emerald-700 hover:bg-white transition-colors"><i className="fa-solid fa-house text-xs"></i></button>
-                                <div className="text-sm font-bold text-emerald-600 uppercase tracking-widest">{trainingType === 'conversion' ? t.numConversion : t.memorization}</div>
+                                <div className="text-sm font-bold text-emerald-600 uppercase tracking-widest">{t.memorization}</div>
                             </div>
-                            <div className="text-xs font-bold text-slate-400">{currentIndex} / {sequence.length}</div>
+                            <div className="text-xs font-bold text-slate-400">{currentIndex + 1} / {sequence.length}</div>
                         </div>
-                        <div className="flex-grow flex flex-col items-center justify-center"><div className="text-6xl sm:text-8xl font-mono font-black text-emerald-800 text-center tracking-tight leading-tight">{currentBatch.join(settings.separator ? settings.separator : ' ')}</div></div>
-                        <button onClick={handleNext} className="w-full py-8 bg-white text-emerald-600 text-2xl font-black rounded-[2rem] shadow-xl active:scale-95 transition-all">{currentIndex + settings.imagesPerView >= sequence.length ? (trainingType === 'memory' ? t.recall : t.finish) : t.next}</button>
+                        <div className="flex-grow flex flex-col items-center justify-center"><div className="text-7xl sm:text-9xl font-mono font-black text-emerald-800 text-center tracking-tight">{sequence[currentIndex]}</div></div>
+                        <button onClick={handleNext} className="w-full py-8 bg-white text-emerald-600 text-2xl font-black rounded-[2rem] shadow-xl active:scale-95 transition-all">{currentIndex + 1 >= sequence.length ? t.recall : t.next}</button>
                     </div>
                 );
             }
 
-            if (gameState === 'recall') return (
-                <div className="h-full flex flex-col p-4 bg-slate-50">
-                    <div className="mb-4">
-                        <div className="flex justify-between items-center mb-2">
-                            <div className="flex items-center gap-4">
-                                <button onClick={handleHomeClick} className="w-8 h-8 flex items-center justify-center bg-white rounded-full text-slate-500 hover:bg-slate-200 transition-colors"><i className="fa-solid fa-house text-xs"></i></button>
-                                <div className="text-sm font-bold text-slate-400 uppercase tracking-widest">{t.recallInput}</div>
+            if (gameState === 'recall') {
+                return (
+                    <div className="h-full flex flex-col p-4 bg-slate-50">
+                         <div className="mb-4">
+                            <div className="flex justify-between items-center mb-2">
+                                <div className="flex items-center gap-4">
+                                    <button onClick={handleHomeClick} className="w-8 h-8 flex items-center justify-center bg-white rounded-full text-slate-500 hover:bg-slate-200 transition-colors"><i className="fa-solid fa-house text-xs"></i></button>
+                                    <div className="text-sm font-bold text-slate-400 uppercase tracking-widest">{t.recallInput}</div>
+                                </div>
+                                <div className="text-xs font-bold text-slate-400">{userInput.length} / {settings.totalDigits}</div>
+                            </div>
+                            <div className="w-full h-32 bg-white rounded-2xl border-2 border-slate-200 p-4 font-mono text-2xl font-bold text-slate-800 overflow-y-auto break-all tracking-widest shadow-inner leading-relaxed">
+                                {userInput || <span className="text-slate-300 tracking-normal font-sans text-base">{t.inputPlace}</span>}
                             </div>
                         </div>
-                        <div className="w-full h-32 bg-white rounded-2xl border-2 border-slate-200 p-4 font-mono text-2xl font-bold text-slate-800 overflow-y-auto break-all tracking-widest shadow-inner">{formatRecallString(userInput) || <span className="text-slate-300">{t.inputPlace}</span>}</div>
+                        <div className="flex-grow grid grid-cols-3 gap-3 mb-4">{[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => <button key={n} onClick={() => handleRecallInput(n.toString())} className="bg-white rounded-2xl shadow-sm border-b-4 border-slate-100 active:border-b-0 active:translate-y-1 transition-all text-3xl font-bold text-slate-700 flex items-center justify-center">{n}</button>)}<button onClick={handleBackspace} className="bg-red-50 text-red-500 rounded-2xl shadow-sm border-b-4 border-red-100 active:border-b-0 active:translate-y-1 transition-all text-xl font-bold flex items-center justify-center"><i className="fa-solid fa-delete-left"></i></button><button onClick={() => handleRecallInput('0')} className="bg-white rounded-2xl shadow-sm border-b-4 border-slate-100 active:border-b-0 active:translate-y-1 transition-all text-3xl font-bold text-slate-700 flex items-center justify-center">0</button><button onClick={finishRecall} className="bg-emerald-600 text-white rounded-2xl shadow-lg border-b-4 border-emerald-800 active:border-b-0 active:translate-y-1 transition-all text-xl font-bold flex items-center justify-center">{t.checkResult}</button></div>
                     </div>
-                    <div className="flex-grow grid grid-cols-3 gap-3 mb-4">{[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => <button key={n} onClick={() => handleRecallInput(n.toString())} className="bg-white rounded-2xl shadow-sm border-b-4 border-slate-100 active:border-b-0 active:translate-y-1 transition-all text-3xl font-bold text-slate-700 flex items-center justify-center">{n}</button>)}<button onClick={handleBackspace} className="bg-red-50 text-red-500 rounded-2xl shadow-sm border-b-4 border-red-100 active:border-b-0 active:translate-y-1 transition-all text-xl font-bold flex items-center justify-center"><i className="fa-solid fa-delete-left"></i></button><button onClick={() => handleRecallInput('0')} className="bg-white rounded-2xl shadow-sm border-b-4 border-slate-100 active:border-b-0 active:translate-y-1 transition-all text-3xl font-bold text-slate-700 flex items-center justify-center">0</button><button onClick={finishRecall} className="bg-emerald-600 text-white rounded-2xl shadow-lg border-b-4 border-emerald-800 active:border-b-0 active:translate-y-1 transition-all text-xl font-bold flex items-center justify-center">{t.checkResult}</button></div>
-                </div>
-            );
+                );
+            }
 
             if (gameState === 'result') {
-                const { correct, total } = calculateScore();
+                const rawSeq = sequence.join('');
+                let mistakes = 0;
+                // Calculate mistakes based on difference length or char mismatch
+                // Standard memory sport rule: usually line by line, but here we simply count char mismatches
+                const len = Math.max(rawSeq.length, userInput.length);
+                for(let i=0; i<len; i++) {
+                    if (rawSeq[i] !== userInput[i]) mistakes++;
+                }
+                
                 const time = endTime - startTime;
-                const fullSeq = sequence.join('');
+                const penaltySeconds = mistakes * 5;
+                const finalScore = time + (penaltySeconds * 1000);
+                const correctCount = len - mistakes;
+
+                // Save Best Score
+                const records = JSON.parse(localStorage.getItem('number_records') || '[]');
+                const best = records.length > 0 ? Math.min(...records.map(r => r.finalScore)) : null;
+                const isNew = best === null || finalScore < best;
+                
+                // Use effect to save only once
+                useEffect(() => {
+                    const newRecord = {
+                        timestamp: Date.now(),
+                        totalDigits: settings.totalDigits,
+                        time,
+                        penaltySeconds,
+                        finalScore,
+                        accuracy: correctCount
+                    };
+                    localStorage.setItem('number_records', JSON.stringify([...records, newRecord].slice(-100))); // Keep last 100
+                }, []); // Run once on mount
+
                 return (
                     <div className="h-full flex flex-col p-4 overflow-y-auto no-scrollbar">
-                        <div className="flex justify-between items-center mb-6 pt-2"><h2 className="text-2xl font-black text-slate-800"><i className="fa-solid fa-square-check text-emerald-500 mr-2"></i> {t.result}</h2><button onClick={() => setGameState('menu')} className="w-10 h-10 flex items-center justify-center bg-slate-100 rounded-full text-slate-500"><i className="fa-solid fa-xmark"></i></button></div>
-                        <div className="bg-white rounded-[2rem] p-6 shadow-xl mb-6 border border-slate-100"><div className="grid grid-cols-2 gap-4 text-center"><div><div className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t.correctRate}</div><div className="text-3xl font-black text-slate-800">{correct} <span className="text-lg text-slate-400">/ {total}</span></div></div><div><div className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t.rawTime}</div><div className="text-3xl font-black text-slate-800">{formatTime(time)}</div></div></div></div>
-                        <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 mb-6 flex-grow overflow-y-auto"><h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">DETAILS</h3><div className="font-mono text-lg break-all tracking-widest leading-loose">{fullSeq.split('').map((char, i) => { const userChar = userInput[i]; let color = 'text-slate-300'; if (userChar === char) color = 'text-emerald-600 font-bold'; else if (userChar) color = 'text-red-500 font-bold bg-red-50'; return <span key={i} className={color}>{char}</span>; })}</div></div>
+                        <div className="flex justify-between items-center mb-6 pt-2">
+                            <div><h2 className="text-2xl font-black text-slate-800 flex items-center gap-2"><i className="fa-solid fa-award text-emerald-500"></i> {t.result}</h2></div>
+                            <div className="flex gap-2"><button onClick={handleHomeClick} className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-slate-500 shadow-sm transition-all hover:text-emerald-600"><i className="fa-solid fa-house"></i></button></div>
+                        </div>
+                        
+                         <div className="w-full bg-emerald-600 text-white rounded-[2.5rem] p-8 sm:p-10 mb-8 shadow-2xl relative flex flex-col items-center text-center">
+                            {isNew && (<div className="absolute top-0 right-0 bg-yellow-400 text-yellow-900 text-[10px] font-black px-4 py-1.5 rounded-bl-2xl uppercase tracking-widest shadow-md">{t.newRecord}</div>)}
+                            <div className="text-[11px] font-black opacity-60 uppercase tracking-widest mb-1">{t.finalScore}</div>
+                            <div className="text-6xl sm:text-7xl font-mono font-black mb-4 tracking-tighter drop-shadow-lg truncate w-full">{formatTime(finalScore)}</div>
+                            <div className="flex items-center gap-2 mb-10 bg-black/10 px-5 py-2 rounded-full"><i className="fa-solid fa-crown text-yellow-400 text-xs"></i><span className="text-sm font-black tracking-widest uppercase">{t.bestScore}: {best ? formatTime(Math.min(best, finalScore)) : formatTime(finalScore)}</span></div>
+                            
+                            <div className="w-full space-y-8 pt-8 border-t border-white/20">
+                                <div className="grid grid-cols-2 w-full gap-4">
+                                    <div className="flex flex-col items-center"><div className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-1">{t.rawTime}</div><div className="font-mono font-black text-2xl">{formatTime(time)}</div></div>
+                                    <div className="flex flex-col items-center"><div className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-1">{t.accuracy}</div><div className="font-mono font-black text-2xl tracking-tight">{correctCount} / {rawSeq.length}</div></div>
+                                </div>
+                                <div className="grid grid-cols-2 w-full gap-4">
+                                    <div className="flex flex-col items-center col-span-2"><div className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-1">{t.penalty}</div><div className={`font-mono font-black text-2xl tracking-tight ${penaltySeconds > 0 ? 'text-red-300' : 'text-green-300'}`}>+{penaltySeconds}s <span className="text-[10px] opacity-70">({t.fiveSecPenalty})</span></div></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 mb-6 flex-grow overflow-y-auto">
+                            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">DETAILS</h3>
+                            <div className="font-mono text-lg break-all tracking-widest leading-loose">
+                                {rawSeq.split('').map((char, i) => { 
+                                    const userChar = userInput[i]; 
+                                    let color = 'text-slate-300'; 
+                                    if (userChar === char) color = 'text-emerald-600 font-bold'; 
+                                    else if (userChar) color = 'text-red-500 font-bold bg-red-50'; 
+                                    return <span key={i} className={color}>{char}</span>; 
+                                })}
+                            </div>
+                        </div>
                         <button onClick={() => startTraining('memory')} className="w-full py-6 bg-emerald-600 text-white text-xl font-black rounded-[2rem] shadow-lg active:scale-95 transition-all mb-4"><i className="fa-solid fa-rotate-right mr-2"></i> {t.retry}</button>
                     </div>
                 );
