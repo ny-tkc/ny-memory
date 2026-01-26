@@ -145,7 +145,8 @@
         };
 
         const handleHomeWithConfirm = (gameState, onBack, t) => {
-            if (gameState !== 'menu' && gameState !== 'idle' && gameState !== 'finished' && gameState !== 'result' && gameState !== 'math_result') {
+            const safeStates = ['menu', 'idle', 'finished', 'result', 'math_result', 'conversion'];
+            if (!safeStates.includes(gameState)) {
                 if (window.confirm(t.confirmQuit)) onBack();
             } else {
                 onBack();
@@ -189,6 +190,17 @@
                             <button onClick={onClose} className="w-8 h-8 flex items-center justify-center bg-slate-100 rounded-full text-slate-500 hover:bg-slate-200 transition-colors"><i className="fa-solid fa-xmark"></i></button>
                         </div>
                         <div className="space-y-6">
+                            <section>
+                                <label className="text-xs font-bold text-slate-400 uppercase mb-2 block tracking-widest">{t.countdown}</label>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {[3, 5, 10].map(s => (
+                                        <button key={s} onClick={() => setGlobalSettings(prev => ({...prev, countdownSeconds: s}))} 
+                                            className={`py-2.5 rounded-xl border-2 font-bold text-sm transition-all ${globalSettings.countdownSeconds === s ? 'bg-indigo-50 border-indigo-600 text-indigo-600' : 'border-slate-100 text-slate-400 hover:border-slate-200'}`}>
+                                            {s}{t.sec}
+                                        </button>
+                                    ))}
+                                </div>
+                            </section>
                             <section>
                                 <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">{t.lang}</label>
                                 <div className="grid grid-cols-2 gap-2">
@@ -309,7 +321,7 @@
 
             const [settings, setSettings] = useState(() => {
                 const saved = localStorage.getItem('calendar_settings');
-                return saved ? JSON.parse(saved) : { yearMode: 'western', countdownSeconds: 3, showNumbers: true, startDay: 0, timerFormat: 'mm:ss' };
+                return saved ? JSON.parse(saved) : { yearMode: 'western', showNumbers: true, startDay: 0, timerFormat: 'mm:ss' };
             });
             const [currentSessionId, setCurrentSessionId] = useState(null);
             const [isNewRecord, setIsNewRecord] = useState(false);
@@ -344,7 +356,7 @@
                 setLaps([]); setFeedback(null); setGameState('countdown');
                 setIsNewRecord(false); setCurrentResult(null); setCurrentSessionId(generateId());
                 setQuestions(Array.from({ length: 5 }, () => generateRandomDate(selectedRange)));
-                let count = settings.countdownSeconds;
+                let count = globalSettings.countdownSeconds || 3;
                 setCountdownText(count.toString());
                 const interval = window.setInterval(() => {
                     count -= 1;
@@ -397,7 +409,7 @@
 
             const startMathCountdown = () => {
                 setGameState('math_countdown');
-                let count = settings.countdownSeconds;
+                let count = globalSettings.countdownSeconds || 3;
                 setCountdownText(count.toString());
                 const interval = setInterval(() => {
                     count--;
@@ -501,7 +513,7 @@
             if (gameState === 'idle') return (
                 <div className="h-full flex flex-col p-4 overflow-y-auto no-scrollbar">
                     <div className="flex justify-between items-center mb-6">
-                        <button onClick={handleHomeClick} className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-slate-500 shadow-sm hover:text-indigo-600 transition-colors"><i className="fa-solid fa-house"></i></button>
+                        <button onClick={handleHomeClick} className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-slate-500 shadow-sm hover:text-indigo-600 transition-colors z-50"><i className="fa-solid fa-house"></i></button>
                         <h2 className="text-lg font-bold text-slate-800">{t.calendar}</h2>
                         <button onClick={() => setIsLocalSettingsOpen(true)} className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-slate-500 shadow-sm hover:text-indigo-600 transition-colors"><i className="fa-solid fa-cog"></i></button>
                     </div>
@@ -538,7 +550,6 @@
                             <div className="bg-white w-full max-w-sm rounded-[2rem] p-6 shadow-2xl overflow-y-auto max-h-[80vh] no-scrollbar">
                                 <h3 className="text-lg font-bold mb-6 flex items-center gap-2 text-slate-800"><i className="fa-solid fa-cog text-indigo-500"></i> {t.gameSettings}</h3>
                                 <div className="space-y-5">
-                                    <section><label className="text-xs font-bold text-slate-400 uppercase mb-2 block tracking-widest">{t.countdown}</label><div className="grid grid-cols-3 gap-2">{[3, 5, 10].map(s => <button key={s} onClick={() => updateLocalSettings('countdownSeconds', s)} className={`py-2.5 rounded-xl border-2 font-bold text-sm transition-all ${settings.countdownSeconds === s ? 'bg-indigo-50 border-indigo-600 text-indigo-600' : 'border-slate-50 bg-slate-50 text-slate-400'}`}>{s}{t.sec}</button>)}</div></section>
                                     <section><label className="text-xs font-bold text-slate-400 uppercase mb-2 block tracking-widest">{t.yearMode}</label><div className="grid grid-cols-3 gap-2">{['western', 'japanese', 'both'].map(m => <button key={m} onClick={() => updateLocalSettings('yearMode', m)} className={`py-2.5 rounded-xl border-2 font-bold text-xs transition-all ${settings.yearMode === m ? 'bg-indigo-50 border-indigo-600 text-indigo-600' : 'border-slate-50 bg-slate-50 text-slate-400'}`}>{m === 'japanese' ? t.era : t[m] || m}</button>)}</div></section>
                                     <section><label className="text-xs font-bold text-slate-400 uppercase mb-2 block tracking-widest">{t.timerFormat}</label><div className="grid grid-cols-2 gap-2">{['mm:ss', 'ss'].map(f => <button key={f} onClick={() => updateLocalSettings('timerFormat', f)} className={`py-2.5 rounded-xl border-2 font-bold text-xs transition-all ${settings.timerFormat === f ? 'bg-indigo-50 border-indigo-600 text-indigo-600' : 'border-slate-50 bg-slate-50 text-slate-400'}`}>{f === 'mm:ss' ? t.minSec : t.onlySec}</button>)}</div></section>
                                 </div>
@@ -553,7 +564,7 @@
             if (gameState === 'playing') return (
                 <div className="h-full flex flex-col p-4 overflow-hidden">
                     <div className="flex justify-between items-start mb-2 flex-none">
-                        <button onClick={handleHomeClick} className="text-slate-400 hover:text-slate-600 py-2"><i className="fa-solid fa-house"></i></button>
+                        <button onClick={handleHomeClick} className="text-slate-400 hover:text-slate-600 py-2 z-50"><i className="fa-solid fa-house"></i></button>
                         <div className="flex flex-col items-center"><span className="text-5xl font-mono font-black text-slate-800 tracking-tighter">{formatTime(currentTime - startTime, settings.timerFormat)}</span></div>
                         <button onClick={startCountdown} className="text-slate-400 hover:text-slate-600 py-2 text-sm font-bold flex flex-col items-center gap-1 transition-colors"><i className="fa-solid fa-rotate-right"></i> {t.restart}</button>
                     </div>
@@ -572,13 +583,15 @@
                     <div className="h-full flex flex-col p-6 bg-indigo-50">
                         {/* Header */}
                         <div className="flex justify-between items-start mb-6 flex-none">
-                            <button onClick={handleHomeClick} className="text-indigo-300 hover:text-indigo-600 py-2"><i className="fa-solid fa-house"></i></button>
+                            <button onClick={handleHomeClick} className="text-indigo-300 hover:text-indigo-600 py-2 z-50"><i className="fa-solid fa-house"></i></button>
                             <div className="flex flex-col items-center">
                                 <span className="text-5xl font-mono font-black text-slate-800 tracking-tighter">
                                     {formatTime(currentTime - mathStartTime, settings.timerFormat)}
                                 </span>
                             </div>
-                            <div className="w-8"></div>
+                            <button onClick={startMathCountdown} className="text-indigo-300 hover:text-indigo-600 py-2 flex flex-col items-center gap-1 transition-colors">
+                                <i className="fa-solid fa-rotate-right"></i>
+                            </button>
                         </div>
 
                         {/* Progress */}
@@ -640,7 +653,7 @@
                     <div className="h-full flex flex-col p-4 overflow-y-auto no-scrollbar">
                         <div className="flex justify-between items-center mb-6 pt-2">
                             <div><h2 className="text-2xl font-black flex items-center gap-3 text-slate-800"><i className="fa-solid fa-calculator text-indigo-500"></i> {t.result}</h2></div>
-                            <div className="flex gap-2"><button onClick={handleHomeClick} className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-slate-500 shadow-sm transition-all hover:text-indigo-600"><i className="fa-solid fa-house"></i></button></div>
+                            <div className="flex gap-2"><button onClick={handleHomeClick} className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-slate-500 shadow-sm transition-all hover:text-indigo-600 z-50"><i className="fa-solid fa-house"></i></button></div>
                         </div>
                         
                         <div className="w-full bg-indigo-600 text-white rounded-[2.5rem] p-8 sm:p-10 mb-8 shadow-2xl relative flex flex-col items-center text-center">
@@ -675,7 +688,7 @@
 
                          <div className="space-y-4 pb-12 mt-auto">
                             <button onClick={startMathCountdown} className="w-full py-6 bg-indigo-600 text-white text-xl font-black rounded-[2rem] shadow-lg hover:shadow-xl active:scale-95 transition-all"><i className="fa-solid fa-rotate-right mr-3"></i> {t.retry}</button>
-                            <button onClick={() => setGameState('idle')} className="w-full py-6 bg-white border-2 border-slate-100 text-slate-600 text-xl font-black rounded-[2rem] active:scale-95 transition-all"><i className="fa-solid fa-sliders mr-3"></i> {t.back}</button>
+                            <button onClick={() => setGameState('idle')} className="w-full py-6 bg-white border-2 border-slate-100 text-slate-600 text-xl font-black rounded-[2rem] active:scale-95 transition-all"><i className="fa-solid fa-check mr-3"></i> {t.finish}</button>
                         </div>
                     </div>
                  );
@@ -685,10 +698,10 @@
                 if (!currentResult) return null; const avg = currentResult.totalTime / 5; const best = getBestScore(selectedRange); const correctCount = currentResult.laps.filter(l => l.correct).length;
                 return (
                     <div className="h-full flex flex-col p-4 overflow-y-auto no-scrollbar">
-                        <div className="flex justify-between items-center mb-6 pt-2"><div><h2 className="text-2xl font-black flex items-center gap-3 text-slate-800"><i className="fa-solid fa-award text-amber-500"></i> {t.result}</h2><span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">{t.mode}: {t[selectedRange] || selectedRange}</span></div><div className="flex gap-2"><button onClick={() => setIsHistoryOpen(true)} className="w-10 h-10 flex items-center justify-center bg-indigo-50 rounded-full text-indigo-600 shadow-sm transition-all hover:bg-indigo-100"><i className="fa-solid fa-clock-rotate-left"></i></button><button onClick={handleHomeClick} className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-slate-500 shadow-sm transition-all hover:text-indigo-600"><i className="fa-solid fa-house"></i></button></div></div>
+                        <div className="flex justify-between items-center mb-6 pt-2"><div><h2 className="text-2xl font-black flex items-center gap-3 text-slate-800"><i className="fa-solid fa-award text-amber-500"></i> {t.result}</h2><span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">{t.mode}: {t[selectedRange] || selectedRange}</span></div><div className="flex gap-2"><button onClick={() => setIsHistoryOpen(true)} className="w-10 h-10 flex items-center justify-center bg-indigo-50 rounded-full text-indigo-600 shadow-sm transition-all hover:bg-indigo-100"><i className="fa-solid fa-clock-rotate-left"></i></button><button onClick={handleHomeClick} className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-slate-500 shadow-sm transition-all hover:text-indigo-600 z-50"><i className="fa-solid fa-house"></i></button></div></div>
                         <div className="w-full bg-indigo-600 text-white rounded-[2.5rem] p-8 sm:p-10 mb-8 shadow-2xl relative flex flex-col items-center text-center">{isNewRecord && (<div className="absolute top-0 right-0 bg-yellow-400 text-yellow-900 text-[10px] font-black px-4 py-1.5 rounded-bl-2xl uppercase tracking-widest shadow-md">{t.newRecord}</div>)}<div className="text-[11px] font-black opacity-60 uppercase tracking-widest mb-1">{t.finalScore}</div><div className="text-6xl sm:text-7xl font-mono font-black mb-4 tracking-tighter drop-shadow-lg truncate w-full">{formatTime(currentResult.finalScore, settings.timerFormat)}</div><div className="flex items-center gap-2 mb-10 bg-black/10 px-5 py-2 rounded-full"><i className="fa-solid fa-crown text-yellow-400 text-xs"></i><span className="text-sm font-black tracking-widest uppercase">{t.bestScore}: {best ? formatTime(best, settings.timerFormat) : '-'}</span></div><div className="w-full space-y-8 pt-8 border-t border-white/20"><div className="grid grid-cols-2 w-full gap-4"><div className="flex flex-col items-center"><div className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-1">{t.rawTime}</div><div className="font-mono font-black text-2xl">{formatTime(currentResult.totalTime, settings.timerFormat)}</div></div><div className="flex flex-col items-center"><div className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-1">{t.accuracy}</div><div className="font-mono font-black text-2xl tracking-tight">{correctCount} / 5</div></div></div><div className="grid grid-cols-2 w-full gap-4"><div className="flex flex-col items-center"><div className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-1">{t.avgTime}</div><div className="font-mono font-black text-2xl tracking-tight">{formatTime(avg, 'ss')}</div></div><div className="flex flex-col items-center"><div className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-1">{t.penalty}</div><div className={`font-mono font-black text-2xl tracking-tight ${currentResult.penaltySeconds > 0 ? 'text-red-300' : 'text-green-300'}`}>+{currentResult.penaltySeconds}s</div></div></div></div></div>
                         <div className="mb-10 space-y-4">{currentResult.laps.map((lap, i) => (<div key={i} className="bg-white rounded-3xl p-5 border border-slate-100 flex items-center justify-between shadow-sm hover:shadow-md transition-shadow"><div className="flex items-center gap-4"><div className={`w-8 h-8 rounded-2xl flex items-center justify-center font-black text-xs ${lap.correct ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>{i + 1}</div><div className="flex flex-col"><span className="text-[10px] text-slate-400 font-black tracking-wider mb-0.5 uppercase">{lap.date}</span><span className="text-base font-bold text-slate-700">{lap.userAnswer} {!lap.correct && <span className="text-red-400 font-black ml-1">→ {lap.correctAnswer}</span>}</span></div></div><div className="flex flex-col items-end gap-1"><div className="text-xs font-mono font-black text-slate-400 tracking-tight">{formatTime(lap.duration, 'ss')}</div>{lap.correct ? <i className="fa-solid fa-circle-check text-green-500"></i> : <i className="fa-solid fa-circle-xmark text-red-400"></i>}</div></div>))}</div>
-                        <div className="space-y-4 pb-12 mt-auto"><button onClick={startCountdown} className="w-full py-6 bg-indigo-600 text-white text-xl font-black rounded-[2rem] shadow-lg hover:shadow-xl active:scale-95 transition-all"><i className="fa-solid fa-rotate-right mr-3"></i> {t.retry}</button><button onClick={() => setGameState('idle')} className="w-full py-6 bg-white border-2 border-slate-100 text-slate-600 text-xl font-black rounded-[2rem] active:scale-95 transition-all"><i className="fa-solid fa-sliders mr-3"></i> {t.changeRange}</button></div>
+                        <div className="space-y-4 pb-12 mt-auto"><button onClick={startCountdown} className="w-full py-6 bg-indigo-600 text-white text-xl font-black rounded-[2rem] shadow-lg hover:shadow-xl active:scale-95 transition-all"><i className="fa-solid fa-rotate-right mr-3"></i> {t.retry}</button><button onClick={() => setGameState('idle')} className="w-full py-6 bg-white border-2 border-slate-100 text-slate-600 text-xl font-black rounded-[2rem] active:scale-95 transition-all"><i className="fa-solid fa-check mr-3"></i> {t.finish}</button></div>
                         {isHistoryOpen && <HistoryModal history={JSON.parse(localStorage.getItem('calendar_history') || '[]')} range={selectedRange} onClose={() => setIsHistoryOpen(false)} t={t} formatTime={formatTime} />}
                     </div>
                 );
@@ -752,7 +765,7 @@
                 const saved = localStorage.getItem('card_settings');
                 return saved ? JSON.parse(saved) : { 
                     deckCount: 1, cardsPerImage: 2, imagesPerView: 1,
-                    autoNext: 0, countdownSeconds: 3
+                    autoNext: 0
                 };
             });
 
@@ -786,19 +799,25 @@
                 setCurrentIndex(0);
                 setUserRecall([]);
                 setSelectedSuit(null);
-                setGameState('countdown');
-                let count = settings.countdownSeconds || 3;
-                setCountdownText(count.toString());
-                const interval = setInterval(() => {
-                    count--;
-                    if (count === 0) setCountdownText('START!');
-                    else if (count < 0) { 
-                        clearInterval(interval); 
-                        setGameState('memorization'); 
-                        setStartTime(performance.now());
-                    }
-                    else setCountdownText(count.toString());
-                }, 1000);
+                
+                if (type === 'conversion') {
+                    setGameState('memorization');
+                    setStartTime(performance.now());
+                } else {
+                    setGameState('countdown');
+                    let count = globalSettings.countdownSeconds || 3;
+                    setCountdownText(count.toString());
+                    const interval = setInterval(() => {
+                        count--;
+                        if (count === 0) setCountdownText('START!');
+                        else if (count < 0) { 
+                            clearInterval(interval); 
+                            setGameState('memorization'); 
+                            setStartTime(performance.now());
+                        }
+                        else setCountdownText(count.toString());
+                    }, 1000);
+                }
             };
 
             useEffect(() => {
@@ -848,7 +867,7 @@
                 return (
                     <div className="h-full flex flex-col p-4 relative overflow-y-auto no-scrollbar">
                         <div className="flex justify-between items-center mb-6">
-                            <button onClick={onBack} className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-slate-500 shadow-sm hover:text-rose-600 transition-colors"><i className="fa-solid fa-house"></i></button>
+                            <button onClick={onBack} className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-slate-500 shadow-sm hover:text-rose-600 transition-colors z-50"><i className="fa-solid fa-house"></i></button>
                             <h2 className="text-lg font-bold text-slate-800">{t.card}</h2>
                             <button onClick={() => setIsSettingsOpen(true)} className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-slate-500 shadow-sm hover:text-rose-600 transition-colors"><i className="fa-solid fa-cog"></i></button>
                         </div>
@@ -886,7 +905,7 @@
                     <div className="h-full flex flex-col p-6 bg-rose-50">
                         <div className="flex justify-between items-center mb-6">
                              <div className="flex items-center gap-4">
-                                <button onClick={handleHomeClick} className="w-8 h-8 flex items-center justify-center bg-white/50 rounded-full text-rose-700 hover:bg-white transition-colors"><i className="fa-solid fa-house text-xs"></i></button>
+                                <button onClick={handleHomeClick} className="w-8 h-8 flex items-center justify-center bg-white/50 rounded-full text-rose-700 hover:bg-white transition-colors z-50"><i className="fa-solid fa-house text-xs"></i></button>
                                 <div className="text-sm font-bold text-rose-600 uppercase tracking-widest">{trainingType === 'conversion' ? t.numConversion : t.memorization}</div>
                              </div>
                              <div className="text-xs font-bold text-slate-400">{currentIndex} / {deck.length}</div>
@@ -913,7 +932,7 @@
                         <div className="flex-grow p-4 overflow-hidden flex flex-col">
                              <div className="flex justify-between items-center mb-2">
                                  <div className="flex items-center gap-4">
-                                     <button onClick={handleHomeClick} className="w-8 h-8 flex items-center justify-center bg-white rounded-full text-slate-500 hover:bg-slate-200 transition-colors"><i className="fa-solid fa-house text-xs"></i></button>
+                                     <button onClick={handleHomeClick} className="w-8 h-8 flex items-center justify-center bg-white rounded-full text-slate-500 hover:bg-slate-200 transition-colors z-50"><i className="fa-solid fa-house text-xs"></i></button>
                                      <div className="text-sm font-bold text-slate-400 uppercase tracking-widest">{t.recallInput}</div>
                                  </div>
                                  <div className="text-xs font-bold text-slate-400">{userRecall.length} / {deck.length}</div>
@@ -1018,10 +1037,6 @@
                                 <input type="number" min="1" max="1000" value={settings.totalDigits} onChange={(e) => updateSettings('totalDigits', Math.max(1, parseInt(e.target.value)||80))} className="w-full p-2.5 border-2 border-slate-100 rounded-xl font-bold text-center text-slate-700 bg-white" />
                             </section>
                             <section>
-                                <label className="text-xs font-bold text-slate-400 uppercase mb-2 block tracking-widest">{t.countdown}</label>
-                                <div className="grid grid-cols-3 gap-2">{[3, 5, 10].map(s => <button key={s} onClick={() => updateSettings('countdownSeconds', s)} className={`py-2.5 rounded-xl border-2 font-bold text-sm transition-all ${settings.countdownSeconds === s ? 'bg-emerald-50 border-emerald-600 text-emerald-600' : 'border-slate-50 bg-slate-50 text-slate-400'}`}>{s}{t.sec}</button>)}</div>
-                            </section>
-                            <section>
                                 <label className="text-xs font-bold text-slate-400 uppercase mb-2 block tracking-widest">{t.autoNextSpeed}</label>
                                 <select value={settings.autoNext} onChange={(e) => updateSettings('autoNext', parseFloat(e.target.value))} className="w-full p-2.5 border-2 border-slate-100 rounded-xl font-bold text-slate-700 bg-white">
                                     <option value={0}>{t.autoNextOff}</option>
@@ -1050,7 +1065,7 @@
 
             const [settings, setSettings] = useState(() => {
                 const saved = localStorage.getItem('number_settings_v3');
-                return saved ? JSON.parse(saved) : { digitsPerGroup: 2, totalDigits: 80, countdownSeconds: 3, autoNext: 0 };
+                return saved ? JSON.parse(saved) : { digitsPerGroup: 2, totalDigits: 80, autoNext: 0 };
             });
 
             const updateSettings = (key, val) => { const ns = {...settings, [key]: val}; setSettings(ns); localStorage.setItem('number_settings_v3', JSON.stringify(ns)); };
@@ -1081,26 +1096,23 @@
                     setSequence(chunked);
                     setCurrentIndex(0);
                     setUserInput("");
-                } else {
-                    setEndlessNumber(generateEndlessNumber());
-                }
-                
-                setGameState('countdown');
-                let count = settings.countdownSeconds || 3;
-                setCountdownText(count.toString());
-                const interval = setInterval(() => {
-                    count--;
-                    if (count === 0) setCountdownText('START!');
-                    else if (count < 0) { 
-                        clearInterval(interval);
-                        if (type === 'memory') {
+                    
+                    setGameState('countdown');
+                    let count = globalSettings.countdownSeconds || 3;
+                    setCountdownText(count.toString());
+                    const interval = setInterval(() => {
+                        count--;
+                        if (count === 0) setCountdownText('START!');
+                        else if (count < 0) { 
+                            clearInterval(interval);
                             setGameState('memorization');
                             setStartTime(performance.now());
-                        } else {
-                            setGameState('conversion');
-                        }
-                    } else setCountdownText(count.toString());
-                }, 1000);
+                        } else setCountdownText(count.toString());
+                    }, 1000);
+                } else {
+                    setEndlessNumber(generateEndlessNumber());
+                    setGameState('conversion');
+                }
             };
 
             useEffect(() => {
@@ -1142,7 +1154,7 @@
 
             if (gameState === 'menu') return (
                 <div className="h-full flex flex-col p-4 relative overflow-y-auto no-scrollbar">
-                    <div className="flex justify-between items-center mb-6"><button onClick={onBack} className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-slate-500 shadow-sm hover:text-emerald-600 transition-colors"><i className="fa-solid fa-house"></i></button><h2 className="text-lg font-bold text-slate-800">{t.number}</h2><button onClick={() => setIsSettingsOpen(true)} className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-slate-500 shadow-sm hover:text-emerald-600 transition-colors"><i className="fa-solid fa-cog"></i></button></div>
+                    <div className="flex justify-between items-center mb-6"><button onClick={onBack} className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-slate-500 shadow-sm hover:text-emerald-600 transition-colors z-50"><i className="fa-solid fa-house"></i></button><h2 className="text-lg font-bold text-slate-800">{t.number}</h2><button onClick={() => setIsSettingsOpen(true)} className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-slate-500 shadow-sm hover:text-emerald-600 transition-colors"><i className="fa-solid fa-cog"></i></button></div>
                     <div className="flex-grow flex flex-col items-center justify-center gap-6">
                         <button onClick={() => startTraining('conversion')} className="w-full max-w-sm p-6 bg-white border-2 border-slate-100 rounded-[2rem] shadow-sm active:scale-95 transition-all text-left group hover:border-emerald-200"><div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-500 mb-4 text-2xl group-hover:bg-emerald-500 group-hover:text-white transition-colors"><i className="fa-solid fa-shuffle"></i></div><div className="text-xl font-black text-slate-800 mb-1">{t.numConversion}</div><div className="text-xs font-bold text-slate-400">{t.descConversion}</div></button>
                         <button onClick={() => startTraining('memory')} className="w-full max-w-sm p-6 bg-emerald-600 text-white rounded-[2rem] shadow-lg active:scale-95 transition-all text-left relative overflow-hidden"><div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10"></div><div className="relative z-10"><div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center text-white mb-4 text-2xl"><i className="fa-solid fa-brain"></i></div><div className="text-xl font-black mb-1">{t.numMemory}</div><div className="text-xs font-bold text-emerald-100">{t.descMemory}</div></div></button>
@@ -1158,7 +1170,7 @@
                     <div className="h-full flex flex-col p-6 bg-emerald-50">
                         <div className="flex justify-between items-center mb-10">
                             <div className="flex items-center gap-4">
-                                <button onClick={handleHomeClick} className="w-8 h-8 flex items-center justify-center bg-white/50 rounded-full text-emerald-700 hover:bg-white transition-colors"><i className="fa-solid fa-house text-xs"></i></button>
+                                <button onClick={handleHomeClick} className="w-8 h-8 flex items-center justify-center bg-white/50 rounded-full text-emerald-700 hover:bg-white transition-colors z-50"><i className="fa-solid fa-house text-xs"></i></button>
                                 <div className="text-sm font-bold text-emerald-600 uppercase tracking-widest">{t.numConversion}</div>
                             </div>
                             <div className="text-xs font-bold text-slate-400">{t.endless}</div>
@@ -1177,7 +1189,7 @@
                     <div className="h-full flex flex-col p-6 bg-emerald-50">
                         <div className="flex justify-between items-center mb-10">
                             <div className="flex items-center gap-4">
-                                <button onClick={handleHomeClick} className="w-8 h-8 flex items-center justify-center bg-white/50 rounded-full text-emerald-700 hover:bg-white transition-colors"><i className="fa-solid fa-house text-xs"></i></button>
+                                <button onClick={handleHomeClick} className="w-8 h-8 flex items-center justify-center bg-white/50 rounded-full text-emerald-700 hover:bg-white transition-colors z-50"><i className="fa-solid fa-house text-xs"></i></button>
                                 <div className="text-sm font-bold text-emerald-600 uppercase tracking-widest">{t.memorization}</div>
                             </div>
                             <div className="text-xs font-bold text-slate-400">{currentIndex + 1} / {sequence.length}</div>
@@ -1194,7 +1206,7 @@
                          <div className="mb-4">
                             <div className="flex justify-between items-center mb-2">
                                 <div className="flex items-center gap-4">
-                                    <button onClick={handleHomeClick} className="w-8 h-8 flex items-center justify-center bg-white rounded-full text-slate-500 hover:bg-slate-200 transition-colors"><i className="fa-solid fa-house text-xs"></i></button>
+                                    <button onClick={handleHomeClick} className="w-8 h-8 flex items-center justify-center bg-white rounded-full text-slate-500 hover:bg-slate-200 transition-colors z-50"><i className="fa-solid fa-house text-xs"></i></button>
                                     <div className="text-sm font-bold text-slate-400 uppercase tracking-widest">{t.recallInput}</div>
                                 </div>
                                 <div className="text-xs font-bold text-slate-400">{userInput.length} / {settings.totalDigits}</div>
@@ -1241,7 +1253,7 @@
                     <div className="h-full flex flex-col p-4 overflow-y-auto no-scrollbar">
                         <div className="flex justify-between items-center mb-6 pt-2">
                             <div><h2 className="text-2xl font-black text-slate-800 flex items-center gap-2"><i className="fa-solid fa-award text-emerald-500"></i> {t.result}</h2></div>
-                            <div className="flex gap-2"><button onClick={handleHomeClick} className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-slate-500 shadow-sm transition-all hover:text-emerald-600"><i className="fa-solid fa-house"></i></button></div>
+                            <div className="flex gap-2"><button onClick={handleHomeClick} className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-slate-500 shadow-sm transition-all hover:text-emerald-600 z-50"><i className="fa-solid fa-house"></i></button></div>
                         </div>
                         
                          <div className="w-full bg-emerald-600 text-white rounded-[2.5rem] p-8 sm:p-10 mb-8 shadow-2xl relative flex flex-col items-center text-center">
@@ -1312,7 +1324,6 @@
                                     {[0.5, 1.0, 1.5, 2.0, 3.0, 5.0].map(n => <option key={n} value={n}>{n}s</option>)}
                                 </select>
                             </section>
-                            <section><label className="text-xs font-bold text-slate-400 uppercase mb-2 block tracking-widest">{t.countdown}</label><div className="grid grid-cols-3 gap-2">{[3, 5, 10].map(s => <button key={s} onClick={() => updateSettings('countdownSeconds', s)} className={`py-2.5 rounded-xl border-2 font-bold text-sm transition-all ${settings.countdownSeconds === s ? 'bg-indigo-50 border-indigo-600 text-indigo-600' : 'border-slate-50 bg-slate-50 text-slate-400'}`}>{s}{t.sec}</button>)}</div></section>
                         </div>
                         <button onClick={onClose} className="w-full mt-8 py-4 bg-slate-900 text-white font-bold rounded-2xl active:scale-95 transition-all">{t.back}</button>
                     </div>
@@ -1335,7 +1346,7 @@
             
             const [settings, setSettings] = useState(() => {
                 const saved = localStorage.getItem('letter_settings_v7');
-                return saved ? JSON.parse(saved) : { activeRows: ['あ', 'か', 'さ', 'た', 'な', 'は'], qCount: 10, autoNext: 0, countdownSeconds: 3, alwaysShowAnswer: false };
+                return saved ? JSON.parse(saved) : { activeRows: ['あ', 'か', 'さ', 'た', 'な', 'は'], qCount: 10, autoNext: 0, alwaysShowAnswer: false };
             });
 
             const [masterData, setMasterData] = useState(() => {
@@ -1373,18 +1384,24 @@
                 setUserAnswers([]);
                 setInput("");
                 setIsAnswerShown(type === 'conversion' ? settings.alwaysShowAnswer : false);
-                setGameState('countdown');
-                let count = settings.countdownSeconds || 3;
-                setCountdownText(count.toString());
-                const interval = setInterval(() => {
-                    count--;
-                    if (count === 0) setCountdownText('START!');
-                    else if (count < 0) { 
-                        clearInterval(interval); 
-                        setGameState('training'); 
-                        setStartTime(performance.now());
-                    } else setCountdownText(count.toString());
-                }, 1000);
+                
+                if (type === 'conversion') {
+                    setGameState('training'); 
+                    setStartTime(performance.now());
+                } else {
+                    setGameState('countdown');
+                    let count = globalSettings.countdownSeconds || 3;
+                    setCountdownText(count.toString());
+                    const interval = setInterval(() => {
+                        count--;
+                        if (count === 0) setCountdownText('START!');
+                        else if (count < 0) { 
+                            clearInterval(interval); 
+                            setGameState('training'); 
+                            setStartTime(performance.now());
+                        } else setCountdownText(count.toString());
+                    }, 1000);
+                }
             };
 
             const handleNext = () => {
@@ -1434,7 +1451,7 @@
 
             if (gameState === 'menu') return (
                 <div className="h-full flex flex-col p-6 items-center justify-center gap-6">
-                    <button onClick={onBack} className="absolute top-6 left-6 w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm"><i className="fa-solid fa-house"></i></button>
+                    <button onClick={onBack} className="absolute top-6 left-6 w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm z-50"><i className="fa-solid fa-house"></i></button>
                     <button onClick={() => setIsSettingsOpen(true)} className="absolute top-6 right-6 w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm text-slate-400 hover:text-amber-500"><i className="fa-solid fa-cog"></i></button>
                     
                     <button onClick={() => startTraining('conversion')} className="w-full max-w-sm p-6 bg-white border-2 border-slate-100 rounded-[2rem] shadow-sm active:scale-95 text-left group hover:border-amber-200 transition-all">
@@ -1461,7 +1478,7 @@
                     <div className="h-full flex flex-col p-6 bg-amber-50">
                         <div className="flex justify-between items-center mb-6">
                             <div className="flex items-center gap-4">
-                                <button onClick={handleHomeClick} className="w-8 h-8 flex items-center justify-center bg-white/50 rounded-full text-amber-700 hover:bg-white transition-colors"><i className="fa-solid fa-house text-xs"></i></button>
+                                <button onClick={handleHomeClick} className="w-8 h-8 flex items-center justify-center bg-white/50 rounded-full text-amber-700 hover:bg-white transition-colors z-50"><i className="fa-solid fa-house text-xs"></i></button>
                                 <span className="font-black text-amber-700 uppercase tracking-widest text-sm">{trainingType === 'memory' ? t.numMemory : t.numConversion}</span>
                             </div>
                             <span className="font-black text-amber-700 uppercase tracking-widest">{currentIndex + 1} / {questions.length}</span>
@@ -1579,9 +1596,9 @@
             const [globalSettings, setGlobalSettings] = useState(() => {
                 try {
                     const saved = localStorage.getItem('global_settings');
-                    return saved ? JSON.parse(saved) : { lang: 'ja', theme: 'light' };
+                    return saved ? JSON.parse(saved) : { lang: 'ja', theme: 'light', countdownSeconds: 3 };
                 } catch(e) {
-                    return { lang: 'ja', theme: 'light' };
+                    return { lang: 'ja', theme: 'light', countdownSeconds: 3 };
                 }
             });
             
