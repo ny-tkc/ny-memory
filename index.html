@@ -50,6 +50,12 @@
             100% { transform: scale(1); opacity: 1; }
         }
         .animate-pop { animation: pop-in 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+
+        /* Card Pip Layouts */
+        .pip-grid { display: grid; width: 100%; height: 100%; padding: 15%; box-sizing: border-box; }
+        .col-1 { grid-template-columns: 1fr; }
+        .col-2 { grid-template-columns: 1fr 1fr; }
+        .col-3 { grid-template-columns: 1fr 1fr 1fr; }
     </style>
 <link rel="stylesheet" href="/index.css">
 </head>
@@ -120,7 +126,10 @@
                 recall: '回答へ', memorization: '記憶', totalDigits: '総数',
                 qCount: '出題数', edit: 'イメージ編集', alwaysShow: '初めから答えを表示', rowSelect: '行選択',
                 digitsPerGroup: '1イメージの桁数', totalDigitsNum: '出題数 (記憶練習)', endless: 'エンドレス', fiveSecPenalty: 'ミス1つにつき5秒加算',
-                mentalMath: '暗算練習', mentalMathDesc: '10問タイムアタック', remainder: 'あまり', showAnswer: '答えを表示', calcStart: '日付計算スタート'
+                mentalMath: '暗算練習', mentalMathDesc: '10問タイムアタック', remainder: 'あまり', showAnswer: '答えを表示', calcStart: '日付計算スタート',
+                sortMode: '出題順', sortRandom: 'ランダム', sortWeak: '苦手順 (NG多い順)', reviewFilter: '復習フィルター', reviewDays: '日以内に出題なし',
+                memoryLen: '記憶する文字数', charCount: '文字', accuracyRate: '正解率', totalCount: '総数',
+                prev: '前へ', first: '最初へ', finishRecall: '回答する', penalty30s: 'ミス1つにつき30秒加算'
             },
             en: {
                 appTitle: 'MemoryPro', calendar: 'Calendar Calc', number: 'Number Memory', letter: 'Letter Pair', card: 'Card Memory',
@@ -140,7 +149,10 @@
                 recall: 'Recall', memorization: 'Memorize', totalDigits: 'Total',
                 qCount: 'Count', edit: 'Edit Image', alwaysShow: 'Show Answer Always', rowSelect: 'Row Select',
                 digitsPerGroup: 'Digits per Image', totalDigitsNum: 'Total Digits (Memory)', endless: 'Endless', fiveSecPenalty: '+5s per mistake',
-                mentalMath: 'Mental Math', mentalMathDesc: '10 Questions Time Attack', remainder: 'Remainder', showAnswer: 'Show Answer', calcStart: 'Start Date Calc'
+                mentalMath: 'Mental Math', mentalMathDesc: '10 Questions Time Attack', remainder: 'Remainder', showAnswer: 'Show Answer', calcStart: 'Start Date Calc',
+                sortMode: 'Sort Order', sortRandom: 'Random', sortWeak: 'Weakest First', reviewFilter: 'Review Filter', reviewDays: 'days since last view',
+                memoryLen: 'Memory Length', charCount: 'chars', accuracyRate: 'Accuracy', totalCount: 'Total',
+                prev: 'Prev', first: 'First', finishRecall: 'Recall Now', penalty30s: '+30s per mistake'
             }
         };
 
@@ -153,8 +165,22 @@
             }
         };
 
+        const MemoryNavControls = ({ onFirst, onPrev, onNext, onFinish, current, total, t }) => {
+            return (
+                <div className="w-full max-w-sm grid grid-cols-4 gap-2 mt-auto pt-4">
+                    <button onClick={onFirst} className="bg-slate-100 text-slate-500 rounded-xl h-14 flex items-center justify-center text-lg hover:bg-slate-200 active:scale-95 transition-all"><i className="fa-solid fa-backward-step"></i></button>
+                    <button onClick={onPrev} className="bg-slate-100 text-slate-500 rounded-xl h-14 flex items-center justify-center text-lg hover:bg-slate-200 active:scale-95 transition-all"><i className="fa-solid fa-chevron-left"></i></button>
+                    <button onClick={onNext} className="bg-slate-800 text-white rounded-xl h-14 flex items-center justify-center text-lg hover:bg-slate-700 active:scale-95 transition-all">
+                        {current + 1 >= total ? t.recall : <i className="fa-solid fa-chevron-right"></i>}
+                    </button>
+                    <button onClick={onFinish} className="bg-green-100 text-green-600 rounded-xl h-14 flex items-center justify-center text-xl hover:bg-green-200 active:scale-95 transition-all"><i className="fa-solid fa-check"></i></button>
+                </div>
+            );
+        };
+
         const GlobalSettingsModal = ({ globalSettings, setGlobalSettings, onClose, t }) => {
             if (!t) return null;
+            // ... (rest of GlobalSettingsModal same as before)
             const handleReset = () => { if (window.confirm(t.resetConfirm)) { localStorage.clear(); window.location.reload(); } };
             const handleExport = () => {
                 const data = { ...localStorage };
@@ -229,24 +255,60 @@
             const isRed = suit === 'heart' || suit === 'diamond';
             const colorClass = isRed ? 'text-red-500' : 'text-slate-800';
             
+            // Generate Pips for 2-10
+            const renderPips = (val) => {
+                const n = parseInt(val);
+                if(isNaN(n)) return null; 
+                // Simple grid patterns
+                return (
+                    <div className={`w-full h-full grid grid-cols-3 p-2 sm:p-4 gap-1 ${className.includes('w-24') ? 'text-xs' : 'text-base sm:text-lg'}`}>
+                        {[...Array(n)].map((_, i) => (
+                             <div key={i} className={`flex items-center justify-center ${i >= 3 && i < n-3 && n > 6 ? 'self-center' : ''}`} style={{gridColumn: (n < 4 ? '2' : 'auto')}}>
+                                {SUIT_ICONS[suit]}
+                             </div>
+                        ))}
+                    </div>
+                );
+            };
+
+            const isFace = ['J', 'Q', 'K'].includes(value);
+            const isAce = value === 'A';
+
             return (
-                <div className={`bg-white rounded-lg border border-slate-200 card-shadow flex flex-col items-center justify-center relative select-none ${className}`}>
+                <div className={`bg-white rounded-lg border border-slate-300 card-shadow flex flex-col items-center justify-center relative select-none overflow-hidden ${className}`}>
                     <div className={`absolute top-1 left-1.5 flex flex-col items-center leading-none ${colorClass}`}>
                         <span className="text-sm font-bold tracking-tighter">{value}</span>
-                        <span className="text-xs">{SUIT_ICONS[suit]}</span>
+                        <span className="text-[10px]">{SUIT_ICONS[suit]}</span>
                     </div>
-                    <div className={`text-3xl ${colorClass}`}>
-                        {SUIT_ICONS[suit]}
+                    
+                    <div className={`w-full h-full flex items-center justify-center ${colorClass}`}>
+                        {isAce && <div className="text-5xl sm:text-6xl">{SUIT_ICONS[suit]}</div>}
+                        {isFace && (
+                            <div className="w-3/4 h-3/4 border-2 border-slate-300 rounded flex flex-col items-center justify-center relative">
+                                <div className="absolute top-1 left-2 text-xl opacity-20">{SUIT_ICONS[suit]}</div>
+                                <div className="absolute bottom-1 right-2 text-xl opacity-20 rotate-180">{SUIT_ICONS[suit]}</div>
+                                <div className="text-4xl sm:text-6xl font-serif font-bold opacity-80">{value}</div>
+                                <div className="text-sm font-bold uppercase tracking-widest mt-1 opacity-50">{isRed ? 'RED' : 'BLACK'}</div>
+                            </div>
+                        )}
+                        {!isAce && !isFace && (
+                             /* Simplified Pip Rendering for numeric cards 2-10 */
+                             <div className="grid grid-cols-2 w-full h-full px-4 py-6 gap-1 place-items-center">
+                                 {[...Array(parseInt(value))].map((_,i) => <div key={i} className="text-lg sm:text-2xl">{SUIT_ICONS[suit]}</div>)}
+                             </div>
+                        )}
                     </div>
+
                     <div className={`absolute bottom-1 right-1.5 flex flex-col items-center leading-none rotate-180 ${colorClass}`}>
                         <span className="text-sm font-bold tracking-tighter">{value}</span>
-                        <span className="text-xs">{SUIT_ICONS[suit]}</span>
+                        <span className="text-[10px]">{SUIT_ICONS[suit]}</span>
                     </div>
                 </div>
             );
         };
 
         const HistoryModal = ({ history, range, onClose, t, formatTime }) => {
+            // ... (Same as existing HistoryModal)
             const [expandedId, setExpandedId] = useState(null);
             const filtered = history.filter(h => h.range === range);
             const top10 = filtered.slice(0, 10);
@@ -299,6 +361,8 @@
         };
 
         const CalendarTrainer = ({ onBack, globalSettings, t }) => {
+            // ... (Same as existing CalendarTrainer code, no changes requested here specifically)
+            // Just copying the logic to ensure integrity.
             const [gameState, setGameState] = useState('idle');
             const [isLocalSettingsOpen, setIsLocalSettingsOpen] = useState(false);
             const [isHistoryOpen, setIsHistoryOpen] = useState(false);
@@ -311,7 +375,6 @@
             const [feedback, setFeedback] = useState(null);
             const [countdownText, setCountdownText] = useState('');
             
-            // Mental Math States
             const [mathQuestion, setMathQuestion] = useState(null);
             const [mathStats, setMathStats] = useState({ count: 0, correct: 0 });
             const [mathFeedback, setMathFeedback] = useState(null);
@@ -398,7 +461,7 @@
                 }, 300);
             };
 
-            // --- Mental Math Logic ---
+            // ... (Mental Math logic preserved)
             const generateMathQuestion = () => {
                 const n1 = Math.random() < 0.5 ? 0 : 1; 
                 const n2 = Math.floor(Math.random() * 7);
@@ -434,9 +497,7 @@
                 if(mathFeedback) return;
                 const isCorrect = val === mathQuestion.answer;
                 setMathFeedback(isCorrect ? 'correct' : 'wrong');
-                
                 const newCorrect = mathStats.correct + (isCorrect ? 1 : 0);
-                
                 setTimeout(() => {
                     setMathFeedback(null);
                     if(mathStats.count < 10) {
@@ -451,45 +512,24 @@
             const finishMathGame = (finalCorrect) => {
                 const endTime = performance.now();
                 setMathEndTime(endTime);
-                
                 const rawTime = endTime - mathStartTime;
                 const mistakes = 10 - finalCorrect;
                 const penalty = mistakes * 5000;
                 const totalScore = rawTime + penalty;
                 const avgScore = totalScore / 10;
-                
-                const newRecord = { 
-                    timestamp: Date.now(), 
-                    rawTime, 
-                    correct: finalCorrect, 
-                    penalty,
-                    totalScore,
-                    avgScore 
-                };
-                
+                const newRecord = { timestamp: Date.now(), rawTime, correct: finalCorrect, penalty, totalScore, avgScore };
                 const currentRecords = [...mathRecords];
                 const updatedRecords = [...currentRecords, newRecord].sort((a,b) => a.totalScore - b.totalScore).slice(0, 50);
-                
                 localStorage.setItem('calendar_math_records_v2', JSON.stringify(updatedRecords));
                 setMathRecords(updatedRecords);
-                
                 if (updatedRecords.length > 0 && updatedRecords[0].timestamp === newRecord.timestamp) {
-                     setIsNewRecord(true);
-                     confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
-                } else {
-                     setIsNewRecord(false);
-                }
-
+                     setIsNewRecord(true); confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+                } else { setIsNewRecord(false); }
                 setMathStats(prev => ({ ...prev, correct: finalCorrect, penalty, totalScore, avgScore, rawTime }));
                 setGameState('math_result');
             };
 
-            const getMathBestScore = () => {
-                if(mathRecords.length === 0) return null;
-                return mathRecords[0].avgScore;
-            };
-
-            // --- Common ---
+            const getMathBestScore = () => { if(mathRecords.length === 0) return null; return mathRecords[0].avgScore; };
             const getBestScore = (range) => {
                 const records = JSON.parse(localStorage.getItem('calendar_records') || '[]');
                 const filtered = records.filter(r => r.range === range);
@@ -510,6 +550,7 @@
                 return list;
             }, [settings.startDay, globalSettings.lang]);
 
+            // Calendar Render logic... (collapsed for brevity, assumed unchanged essentially)
             if (gameState === 'idle') return (
                 <div className="h-full flex flex-col p-4 overflow-y-auto no-scrollbar">
                     <div className="flex justify-between items-center mb-6">
@@ -524,42 +565,21 @@
                                 {['birthday', 'recent', 'competition'].map(r => <option key={r} value={r}>{t[r] || r}</option>)}
                             </select>
                         </div>
-                        
                         <button onClick={startCountdown} className="w-full py-6 bg-indigo-600 text-white rounded-[2rem] shadow-lg active:scale-95 transition-all text-left px-8 relative overflow-hidden group">
-                            <div className="relative z-10">
-                                <div className="text-2xl font-black mb-1">{t.calcStart}</div>
-                                <div className="text-xs font-bold opacity-70">{t.descCal}</div>
-                            </div>
+                            <div className="relative z-10"><div className="text-2xl font-black mb-1">{t.calcStart}</div><div className="text-xs font-bold opacity-70">{t.descCal}</div></div>
                             <div className="absolute right-6 top-1/2 -translate-y-1/2 text-4xl opacity-20 group-hover:scale-110 transition-transform"><i className="fa-solid fa-play"></i></div>
                         </button>
-
                         <button onClick={startMathCountdown} className="w-full py-6 bg-white border-2 border-indigo-100 text-indigo-600 rounded-[2rem] shadow-sm active:scale-95 transition-all text-left px-8 relative overflow-hidden group hover:border-indigo-200">
-                            <div className="relative z-10">
-                                <div className="text-xl font-black mb-1">{t.mentalMath}</div>
-                                <div className="text-xs font-bold text-slate-400">{t.mentalMathDesc}</div>
-                            </div>
+                            <div className="relative z-10"><div className="text-xl font-black mb-1">{t.mentalMath}</div><div className="text-xs font-bold text-slate-400">{t.mentalMathDesc}</div></div>
                             <div className="absolute right-6 top-1/2 -translate-y-1/2 text-3xl opacity-10 group-hover:scale-110 transition-transform"><i className="fa-solid fa-calculator"></i></div>
                         </button>
-
-                        <button onClick={() => setIsHistoryOpen(true)} className="flex items-center gap-2 text-slate-400 font-bold text-sm hover:text-indigo-600 transition-colors mt-4">
-                            <i className="fa-solid fa-clock-rotate-left"></i> {t.historyMenu}
-                        </button>
+                        <button onClick={() => setIsHistoryOpen(true)} className="flex items-center gap-2 text-slate-400 font-bold text-sm hover:text-indigo-600 transition-colors mt-4"><i className="fa-solid fa-clock-rotate-left"></i> {t.historyMenu}</button>
                     </div>
-                    {isLocalSettingsOpen && (
-                        <div className="fixed inset-0 z-[110] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm">
-                            <div className="bg-white w-full max-w-sm rounded-[2rem] p-6 shadow-2xl overflow-y-auto max-h-[80vh] no-scrollbar">
-                                <h3 className="text-lg font-bold mb-6 flex items-center gap-2 text-slate-800"><i className="fa-solid fa-cog text-indigo-500"></i> {t.gameSettings}</h3>
-                                <div className="space-y-5">
-                                    <section><label className="text-xs font-bold text-slate-400 uppercase mb-2 block tracking-widest">{t.yearMode}</label><div className="grid grid-cols-3 gap-2">{['western', 'japanese', 'both'].map(m => <button key={m} onClick={() => updateLocalSettings('yearMode', m)} className={`py-2.5 rounded-xl border-2 font-bold text-xs transition-all ${settings.yearMode === m ? 'bg-indigo-50 border-indigo-600 text-indigo-600' : 'border-slate-50 bg-slate-50 text-slate-400'}`}>{m === 'japanese' ? t.era : t[m] || m}</button>)}</div></section>
-                                    <section><label className="text-xs font-bold text-slate-400 uppercase mb-2 block tracking-widest">{t.timerFormat}</label><div className="grid grid-cols-2 gap-2">{['mm:ss', 'ss'].map(f => <button key={f} onClick={() => updateLocalSettings('timerFormat', f)} className={`py-2.5 rounded-xl border-2 font-bold text-xs transition-all ${settings.timerFormat === f ? 'bg-indigo-50 border-indigo-600 text-indigo-600' : 'border-slate-50 bg-slate-50 text-slate-400'}`}>{f === 'mm:ss' ? t.minSec : t.onlySec}</button>)}</div></section>
-                                </div>
-                                <button onClick={() => setIsLocalSettingsOpen(false)} className="w-full mt-8 py-4 bg-slate-900 text-white font-bold rounded-2xl shadow-lg active:scale-95 transition-all">{t.back}</button>
-                            </div>
-                        </div>
-                    )}
+                    {isLocalSettingsOpen && (<div className="fixed inset-0 z-[110] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm"><div className="bg-white w-full max-w-sm rounded-[2rem] p-6 shadow-2xl overflow-y-auto max-h-[80vh] no-scrollbar"><h3 className="text-lg font-bold mb-6 flex items-center gap-2 text-slate-800"><i className="fa-solid fa-cog text-indigo-500"></i> {t.gameSettings}</h3><div className="space-y-5"><section><label className="text-xs font-bold text-slate-400 uppercase mb-2 block tracking-widest">{t.yearMode}</label><div className="grid grid-cols-3 gap-2">{['western', 'japanese', 'both'].map(m => <button key={m} onClick={() => updateLocalSettings('yearMode', m)} className={`py-2.5 rounded-xl border-2 font-bold text-xs transition-all ${settings.yearMode === m ? 'bg-indigo-50 border-indigo-600 text-indigo-600' : 'border-slate-50 bg-slate-50 text-slate-400'}`}>{m === 'japanese' ? t.era : t[m] || m}</button>)}</div></section><section><label className="text-xs font-bold text-slate-400 uppercase mb-2 block tracking-widest">{t.timerFormat}</label><div className="grid grid-cols-2 gap-2">{['mm:ss', 'ss'].map(f => <button key={f} onClick={() => updateLocalSettings('timerFormat', f)} className={`py-2.5 rounded-xl border-2 font-bold text-xs transition-all ${settings.timerFormat === f ? 'bg-indigo-50 border-indigo-600 text-indigo-600' : 'border-slate-50 bg-slate-50 text-slate-400'}`}>{f === 'mm:ss' ? t.minSec : t.onlySec}</button>)}</div></section></div><button onClick={() => setIsLocalSettingsOpen(false)} className="w-full mt-8 py-4 bg-slate-900 text-white font-bold rounded-2xl shadow-lg active:scale-95 transition-all">{t.back}</button></div></div>)}
                     {isHistoryOpen && <HistoryModal history={JSON.parse(localStorage.getItem('calendar_history') || '[]')} range={selectedRange} onClose={() => setIsHistoryOpen(false)} t={t} formatTime={formatTime} />}
                 </div>
             );
+            // ... (rest of CalendarTrainer returns same as before)
             if (gameState === 'countdown' || gameState === 'math_countdown') return <div className="h-full flex items-center justify-center bg-indigo-600 text-white"><div className="text-8xl font-black animate-countdown px-4 text-center">{countdownText}</div></div>;
             if (gameState === 'playing') return (
                 <div className="h-full flex flex-col p-4 overflow-hidden">
@@ -581,67 +601,23 @@
             if (gameState === 'playing_math') {
                 return (
                     <div className="h-full flex flex-col p-6 bg-indigo-50">
-                        {/* Header */}
                         <div className="flex justify-between items-start mb-6 flex-none">
                             <button onClick={handleHomeClick} className="text-indigo-300 hover:text-indigo-600 py-2 z-50"><i className="fa-solid fa-house"></i></button>
-                            <div className="flex flex-col items-center">
-                                <span className="text-5xl font-mono font-black text-slate-800 tracking-tighter">
-                                    {formatTime(currentTime - mathStartTime, settings.timerFormat)}
-                                </span>
-                            </div>
-                            <button onClick={startMathCountdown} className="text-indigo-300 hover:text-indigo-600 py-2 flex flex-col items-center gap-1 transition-colors">
-                                <i className="fa-solid fa-rotate-right"></i>
-                            </button>
+                            <div className="flex flex-col items-center"><span className="text-5xl font-mono font-black text-slate-800 tracking-tighter">{formatTime(currentTime - mathStartTime, settings.timerFormat)}</span></div>
+                            <button onClick={startMathCountdown} className="text-indigo-300 hover:text-indigo-600 py-2 flex flex-col items-center gap-1 transition-colors"><i className="fa-solid fa-rotate-right"></i></button>
                         </div>
-
-                        {/* Progress */}
-                        <div className="text-center mb-8 flex-none">
-                             <span className="text-xs font-black text-indigo-400 uppercase tracking-widest bg-white px-3 py-1 rounded-full">{mathStats.count} / 10</span>
-                        </div>
-
-                        {/* Question Area */}
+                        <div className="text-center mb-8 flex-none"><span className="text-xs font-black text-indigo-400 uppercase tracking-widest bg-white px-3 py-1 rounded-full">{mathStats.count} / 10</span></div>
                         <div className="flex-grow flex flex-col items-center justify-center relative">
-                            {/* Feedback Overlay */}
-                            {mathFeedback && (
-                                <div className="absolute inset-0 flex items-center justify-center z-10 animate-pop">
-                                    {mathFeedback === 'correct' 
-                                        ? <i className="fa-regular fa-circle text-9xl text-green-500 opacity-80 drop-shadow-lg"></i>
-                                        : <i className="fa-solid fa-xmark text-9xl text-red-500 opacity-80 drop-shadow-lg"></i>
-                                    }
-                                </div>
-                            )}
-
+                            {mathFeedback && (<div className="absolute inset-0 flex items-center justify-center z-10 animate-pop">{mathFeedback === 'correct' ? <i className="fa-regular fa-circle text-9xl text-green-500 opacity-80 drop-shadow-lg"></i> : <i className="fa-solid fa-xmark text-9xl text-red-500 opacity-80 drop-shadow-lg"></i>}</div>)}
                             <div className="bg-white p-8 rounded-[2rem] shadow-sm w-full max-w-sm border-2 border-indigo-100">
-                                <div className="text-4xl sm:text-5xl font-black text-slate-700 text-center tracking-tight mb-4 flex justify-center gap-1 sm:gap-2">
-                                    <span>{mathQuestion.n1}</span>
-                                    <span className="text-indigo-300">+</span>
-                                    <span>{mathQuestion.n2}</span>
-                                    <span className="text-indigo-300">+</span>
-                                    <span>{mathQuestion.n3}</span>
-                                    <span className="text-indigo-300">+</span>
-                                    <span>{mathQuestion.n4}</span>
-                                </div>
-                                <div className="flex justify-center">
-                                    <div className="inline-block border-t-4 border-indigo-100 px-10 pt-2 text-2xl font-bold text-slate-400">
-                                        ÷ 7
-                                    </div>
-                                </div>
+                                <div className="text-4xl sm:text-5xl font-black text-slate-700 text-center tracking-tight mb-4 flex justify-center gap-1 sm:gap-2"><span>{mathQuestion.n1}</span><span className="text-indigo-300">+</span><span>{mathQuestion.n2}</span><span className="text-indigo-300">+</span><span>{mathQuestion.n3}</span><span className="text-indigo-300">+</span><span>{mathQuestion.n4}</span></div>
+                                <div className="flex justify-center"><div className="inline-block border-t-4 border-indigo-100 px-10 pt-2 text-2xl font-bold text-slate-400">÷ 7</div></div>
                             </div>
                         </div>
-
-                        {/* Keypad */}
                         <div className="mt-auto pt-8 max-w-sm mx-auto w-full">
                             <div className="grid grid-cols-3 gap-3">
-                                {[1, 2, 3, 4, 5, 6].map(n => (
-                                    <button key={n} onClick={() => handleMathAnswer(n)} className="h-20 bg-white rounded-2xl shadow-sm border-b-4 border-slate-200 active:border-b-0 active:translate-y-1 active:bg-slate-50 transition-all text-3xl font-black text-slate-700">
-                                        {n}
-                                    </button>
-                                ))}
-                                <div className="col-start-2">
-                                     <button onClick={() => handleMathAnswer(0)} className="w-full h-20 bg-white rounded-2xl shadow-sm border-b-4 border-slate-200 active:border-b-0 active:translate-y-1 active:bg-slate-50 transition-all text-3xl font-black text-slate-700">
-                                        0
-                                    </button>
-                                </div>
+                                {[1, 2, 3, 4, 5, 6].map(n => (<button key={n} onClick={() => handleMathAnswer(n)} className="h-20 bg-white rounded-2xl shadow-sm border-b-4 border-slate-200 active:border-b-0 active:translate-y-1 active:bg-slate-50 transition-all text-3xl font-black text-slate-700">{n}</button>))}
+                                <div className="col-start-2"><button onClick={() => handleMathAnswer(0)} className="w-full h-20 bg-white rounded-2xl shadow-sm border-b-4 border-slate-200 active:border-b-0 active:translate-y-1 active:bg-slate-50 transition-all text-3xl font-black text-slate-700">0</button></div>
                             </div>
                         </div>
                     </div>
@@ -655,37 +631,19 @@
                             <div><h2 className="text-2xl font-black flex items-center gap-3 text-slate-800"><i className="fa-solid fa-calculator text-indigo-500"></i> {t.result}</h2></div>
                             <div className="flex gap-2"><button onClick={handleHomeClick} className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-slate-500 shadow-sm transition-all hover:text-indigo-600 z-50"><i className="fa-solid fa-house"></i></button></div>
                         </div>
-                        
                         <div className="w-full bg-indigo-600 text-white rounded-[2.5rem] p-8 sm:p-10 mb-8 shadow-2xl relative flex flex-col items-center text-center">
                             {isNewRecord && (<div className="absolute top-0 right-0 bg-yellow-400 text-yellow-900 text-[10px] font-black px-4 py-1.5 rounded-bl-2xl uppercase tracking-widest shadow-md">{t.newRecord}</div>)}
                             <div className="text-[11px] font-black opacity-60 uppercase tracking-widest mb-1">{t.finalScore} <span className="text-[10px] opacity-80 normal-case">(Avg)</span></div>
-                            <div className="text-6xl sm:text-7xl font-mono font-black mb-4 tracking-tighter drop-shadow-lg truncate w-full">
-                                {formatTime(mathStats.avgScore, 'ss')}
-                            </div>
-                            
-                            <div className="flex items-center gap-2 mb-10 bg-black/10 px-5 py-2 rounded-full">
-                                <i className="fa-solid fa-crown text-yellow-400 text-xs"></i>
-                                <span className="text-sm font-black tracking-widest uppercase">{t.bestScore}: {bestAvg ? formatTime(bestAvg, 'ss') : '-'}</span>
-                            </div>
-
+                            <div className="text-6xl sm:text-7xl font-mono font-black mb-4 tracking-tighter drop-shadow-lg truncate w-full">{formatTime(mathStats.avgScore, 'ss')}</div>
+                            <div className="flex items-center gap-2 mb-10 bg-black/10 px-5 py-2 rounded-full"><i className="fa-solid fa-crown text-yellow-400 text-xs"></i><span className="text-sm font-black tracking-widest uppercase">{t.bestScore}: {bestAvg ? formatTime(bestAvg, 'ss') : '-'}</span></div>
                             <div className="w-full pt-8 border-t border-white/20">
                                 <div className="grid grid-cols-2 gap-4">
-                                     <div className="flex flex-col items-center">
-                                        <div className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-1">{t.rawTime}</div>
-                                        <div className="font-mono font-black text-xl tracking-tight">{formatTime(mathStats.rawTime, settings.timerFormat)}</div>
-                                    </div>
-                                    <div className="flex flex-col items-center">
-                                        <div className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-1">{t.penalty}</div>
-                                        <div className="font-mono font-black text-xl tracking-tight text-red-300">+{mathStats.penalty / 1000}s</div>
-                                    </div>
+                                     <div className="flex flex-col items-center"><div className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-1">{t.rawTime}</div><div className="font-mono font-black text-xl tracking-tight">{formatTime(mathStats.rawTime, settings.timerFormat)}</div></div>
+                                     <div className="flex flex-col items-center"><div className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-1">{t.penalty}</div><div className="font-mono font-black text-xl tracking-tight text-red-300">+{mathStats.penalty / 1000}s</div></div>
                                 </div>
-                                <div className="mt-4 flex flex-col items-center">
-                                    <div className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-1">{t.accuracy}</div>
-                                    <div className="font-mono font-black text-2xl tracking-tight">{mathStats.correct} / 10</div>
-                                </div>
+                                <div className="mt-4 flex flex-col items-center"><div className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-1">{t.accuracy}</div><div className="font-mono font-black text-2xl tracking-tight">{mathStats.correct} / 10</div></div>
                             </div>
                         </div>
-
                          <div className="space-y-4 pb-12 mt-auto">
                             <button onClick={startMathCountdown} className="w-full py-6 bg-indigo-600 text-white text-xl font-black rounded-[2rem] shadow-lg hover:shadow-xl active:scale-95 transition-all"><i className="fa-solid fa-rotate-right mr-3"></i> {t.retry}</button>
                             <button onClick={() => setGameState('idle')} className="w-full py-6 bg-white border-2 border-slate-100 text-slate-600 text-xl font-black rounded-[2rem] active:scale-95 transition-all"><i className="fa-solid fa-check mr-3"></i> {t.finish}</button>
@@ -693,7 +651,6 @@
                     </div>
                  );
             }
-
             if (gameState === 'finished') {
                 if (!currentResult) return null; const avg = currentResult.totalTime / 5; const best = getBestScore(selectedRange); const correctCount = currentResult.laps.filter(l => l.correct).length;
                 return (
@@ -709,6 +666,7 @@
         };
 
         const CardSettingsModal = ({ settings, updateSettings, onClose, t }) => {
+            // ... same
             return (
                 <div className="fixed inset-0 z-[110] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm">
                     <div className="bg-white w-full max-w-sm rounded-[2rem] p-6 shadow-2xl overflow-y-auto max-h-[85vh] no-scrollbar">
@@ -820,16 +778,6 @@
                 }
             };
 
-            useEffect(() => {
-                let timer;
-                if(gameState === 'memorization' && settings.autoNext > 0) {
-                    timer = setInterval(() => {
-                        handleNext();
-                    }, settings.autoNext * 1000);
-                }
-                return () => clearInterval(timer);
-            }, [gameState, currentIndex, settings.autoNext]);
-
             const handleNext = () => {
                 const step = settings.cardsPerImage * settings.imagesPerView;
                 const nextIdx = currentIndex + step;
@@ -843,6 +791,25 @@
                     setCurrentIndex(nextIdx);
                 }
             };
+            
+            const handlePrev = () => {
+                const step = settings.cardsPerImage * settings.imagesPerView;
+                setCurrentIndex(Math.max(0, currentIndex - step));
+            };
+
+            const handleFirst = () => {
+                setCurrentIndex(0);
+            };
+
+            useEffect(() => {
+                let timer;
+                if(gameState === 'memorization' && settings.autoNext > 0) {
+                    timer = setInterval(() => {
+                        handleNext();
+                    }, settings.autoNext * 1000);
+                }
+                return () => clearInterval(timer);
+            }, [gameState, currentIndex, settings.autoNext]);
 
             const handleRecallInput = (val) => {
                 if(selectedSuit) {
@@ -919,9 +886,22 @@
                                 </div>
                             ))}
                         </div>
-                        <button onClick={handleNext} className="w-full py-6 bg-white text-rose-600 text-xl font-black rounded-[2rem] shadow-xl active:scale-95 transition-all mt-6">
-                            {currentIndex + step >= deck.length ? (trainingType === 'memory' ? t.recall : t.finish) : t.next}
-                        </button>
+                        
+                        {trainingType === 'memory' ? (
+                            <MemoryNavControls 
+                                onFirst={handleFirst} 
+                                onPrev={handlePrev} 
+                                onNext={handleNext} 
+                                onFinish={() => setGameState('recall')} 
+                                current={currentIndex}
+                                total={deck.length}
+                                t={t}
+                            />
+                        ) : (
+                            <button onClick={handleNext} className="w-full py-6 bg-white text-rose-600 text-xl font-black rounded-[2rem] shadow-xl active:scale-95 transition-all mt-6">
+                                {currentIndex + step >= deck.length ? t.finish : t.next}
+                            </button>
+                        )}
                     </div>
                 );
             }
@@ -971,14 +951,16 @@
                 );
             }
 
+            // ... Result View (Same as before)
             if (gameState === 'result') {
-                const fullDeck = deck; 
-                let correct = 0;
-                for(let i=0; i<Math.min(fullDeck.length, userRecall.length); i++) {
-                    if(fullDeck[i].suit === userRecall[i].suit && fullDeck[i].value === userRecall[i].value) { correct++; }
-                }
-                const time = endTime - startTime;
-                return (
+                 // ... (existing result view code)
+                 const fullDeck = deck; 
+                 let correct = 0;
+                 for(let i=0; i<Math.min(fullDeck.length, userRecall.length); i++) {
+                     if(fullDeck[i].suit === userRecall[i].suit && fullDeck[i].value === userRecall[i].value) { correct++; }
+                 }
+                 const time = endTime - startTime;
+                 return (
                     <div className="h-full flex flex-col p-4 overflow-y-auto no-scrollbar">
                         <div className="flex justify-between items-center mb-6 pt-2">
                             <h2 className="text-2xl font-black text-slate-800"><i className="fa-solid fa-square-check text-rose-500 mr-2"></i> {t.result}</h2>
@@ -1018,6 +1000,7 @@
         };
 
         const NumberSettingsModal = ({ settings, updateSettings, onClose, t }) => {
+            // ... (Same)
             return (
                 <div className="fixed inset-0 z-[110] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm">
                     <div className="bg-white w-full max-w-sm rounded-[2rem] p-6 shadow-2xl overflow-y-auto max-h-[85vh] no-scrollbar">
@@ -1115,16 +1098,6 @@
                 }
             };
 
-            useEffect(() => {
-                let timer;
-                if(gameState === 'memorization' && settings.autoNext > 0) {
-                    timer = setInterval(() => {
-                        handleNext();
-                    }, settings.autoNext * 1000);
-                }
-                return () => clearInterval(timer);
-            }, [gameState, currentIndex, settings.autoNext]);
-
             const handleNext = () => {
                 if(trainingType === 'memory') {
                      if(currentIndex + 1 >= sequence.length) {
@@ -1136,6 +1109,24 @@
                     setEndlessNumber(generateEndlessNumber());
                 }
             };
+            
+            const handlePrev = () => {
+                setCurrentIndex(Math.max(0, currentIndex - 1));
+            };
+
+            const handleFirst = () => {
+                setCurrentIndex(0);
+            };
+
+            useEffect(() => {
+                let timer;
+                if(gameState === 'memorization' && settings.autoNext > 0) {
+                    timer = setInterval(() => {
+                        handleNext();
+                    }, settings.autoNext * 1000);
+                }
+                return () => clearInterval(timer);
+            }, [gameState, currentIndex, settings.autoNext]);
 
             const handleRecallInput = (num) => { setUserInput(prev => prev + num); };
             const handleBackspace = () => { setUserInput(prev => prev.slice(0, -1)); };
@@ -1166,6 +1157,7 @@
             if (gameState === 'countdown') return <div className="h-full flex items-center justify-center bg-emerald-600 text-white"><div className="text-8xl font-black animate-countdown px-4 text-center">{countdownText}</div></div>;
 
             if (gameState === 'conversion') {
+                 // ... Same as before
                  return (
                     <div className="h-full flex flex-col p-6 bg-emerald-50">
                         <div className="flex justify-between items-center mb-10">
@@ -1195,31 +1187,47 @@
                             <div className="text-xs font-bold text-slate-400">{currentIndex + 1} / {sequence.length}</div>
                         </div>
                         <div className="flex-grow flex flex-col items-center justify-center"><div className="text-7xl sm:text-9xl font-mono font-black text-emerald-800 text-center tracking-tight">{sequence[currentIndex]}</div></div>
-                        <button onClick={handleNext} className="w-full py-8 bg-white text-emerald-600 text-2xl font-black rounded-[2rem] shadow-xl active:scale-95 transition-all">{currentIndex + 1 >= sequence.length ? t.recall : t.next}</button>
+                        
+                        <MemoryNavControls 
+                            onFirst={handleFirst} 
+                            onPrev={handlePrev} 
+                            onNext={handleNext} 
+                            onFinish={() => setGameState('recall')} 
+                            current={currentIndex}
+                            total={sequence.length}
+                            t={t}
+                        />
                     </div>
                 );
             }
 
             if (gameState === 'recall') {
+                const formattedInput = userInput.replace(new RegExp(`.{1,${settings.digitsPerGroup}}`, 'g'), '$& ').trim();
                 return (
                     <div className="h-full flex flex-col p-4 bg-slate-50">
-                         <div className="mb-4">
-                            <div className="flex justify-between items-center mb-2">
+                         <div className="mb-4 flex-grow flex flex-col">
+                            <div className="flex justify-between items-center mb-2 flex-none">
                                 <div className="flex items-center gap-4">
                                     <button onClick={handleHomeClick} className="w-8 h-8 flex items-center justify-center bg-white rounded-full text-slate-500 hover:bg-slate-200 transition-colors z-50"><i className="fa-solid fa-house text-xs"></i></button>
                                     <div className="text-sm font-bold text-slate-400 uppercase tracking-widest">{t.recallInput}</div>
                                 </div>
                                 <div className="text-xs font-bold text-slate-400">{userInput.length} / {settings.totalDigits}</div>
                             </div>
-                            <div className="w-full h-32 bg-white rounded-2xl border-2 border-slate-200 p-4 font-mono text-2xl font-bold text-slate-800 overflow-y-auto break-all tracking-widest shadow-inner leading-relaxed">
-                                {userInput || <span className="text-slate-300 tracking-normal font-sans text-base">{t.inputPlace}</span>}
+                            <div className="flex-grow w-full bg-white rounded-2xl border-2 border-slate-200 p-6 font-mono text-3xl sm:text-4xl font-bold text-slate-800 overflow-y-auto break-all tracking-widest shadow-inner leading-relaxed">
+                                {formattedInput || <span className="text-slate-300 tracking-normal font-sans text-lg">{t.inputPlace}</span>}
                             </div>
                         </div>
-                        <div className="flex-grow grid grid-cols-3 gap-3 mb-4">{[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => <button key={n} onClick={() => handleRecallInput(n.toString())} className="bg-white rounded-2xl shadow-sm border-b-4 border-slate-100 active:border-b-0 active:translate-y-1 transition-all text-3xl font-bold text-slate-700 flex items-center justify-center">{n}</button>)}<button onClick={handleBackspace} className="bg-red-50 text-red-500 rounded-2xl shadow-sm border-b-4 border-red-100 active:border-b-0 active:translate-y-1 transition-all text-xl font-bold flex items-center justify-center"><i className="fa-solid fa-delete-left"></i></button><button onClick={() => handleRecallInput('0')} className="bg-white rounded-2xl shadow-sm border-b-4 border-slate-100 active:border-b-0 active:translate-y-1 transition-all text-3xl font-bold text-slate-700 flex items-center justify-center">0</button><button onClick={finishRecall} className="bg-emerald-600 text-white rounded-2xl shadow-lg border-b-4 border-emerald-800 active:border-b-0 active:translate-y-1 transition-all text-xl font-bold flex items-center justify-center">{t.checkResult}</button></div>
+                        <div className="grid grid-cols-3 gap-2 mb-4 h-64 flex-none">
+                            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => <button key={n} onClick={() => handleRecallInput(n.toString())} className="bg-white rounded-xl shadow-sm border-b-4 border-slate-100 active:border-b-0 active:translate-y-1 transition-all text-2xl font-bold text-slate-700 flex items-center justify-center">{n}</button>)}
+                            <button onClick={handleBackspace} className="bg-red-50 text-red-500 rounded-xl shadow-sm border-b-4 border-red-100 active:border-b-0 active:translate-y-1 transition-all text-xl font-bold flex items-center justify-center"><i className="fa-solid fa-delete-left"></i></button>
+                            <button onClick={() => handleRecallInput('0')} className="bg-white rounded-xl shadow-sm border-b-4 border-slate-100 active:border-b-0 active:translate-y-1 transition-all text-2xl font-bold text-slate-700 flex items-center justify-center">0</button>
+                            <button onClick={finishRecall} className="bg-emerald-600 text-white rounded-xl shadow-lg border-b-4 border-emerald-800 active:border-b-0 active:translate-y-1 transition-all text-xl font-bold flex items-center justify-center">{t.checkResult}</button>
+                        </div>
                     </div>
                 );
             }
 
+            // ... Result (Same)
             if (gameState === 'result') {
                 const rawSeq = sequence.join('');
                 let mistakes = 0;
@@ -1293,6 +1301,7 @@
         };
 
         const LetterPairSettingsModal = ({ settings, updateSettings, onClose, t }) => {
+            // ... (Same)
             const rowKeys = ['あ', 'か', 'さ', 'た', 'な', 'は'];
             return (
                 <div className="fixed inset-0 z-[110] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm">
@@ -1307,10 +1316,28 @@
                                     ))}
                                 </div>
                             </section>
+
                             <section>
-                                <label className="text-xs font-bold text-slate-400 uppercase mb-2 block tracking-widest">{t.qCount}</label>
-                                <input type="number" min="1" max="100" value={settings.qCount} onChange={e=>updateSettings('qCount', Math.max(1, Math.min(100, parseInt(e.target.value)||10)))} className="w-full p-2.5 border-2 border-slate-100 rounded-xl font-bold text-center text-slate-700 bg-white" />
+                                <label className="text-xs font-bold text-slate-400 uppercase mb-2 block tracking-widest">{t.sortMode}</label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <button onClick={() => updateSettings('sortMode', 'random')} className={`py-2 rounded-xl border-2 font-bold text-xs transition-all ${settings.sortMode !== 'ng_desc' ? 'bg-amber-50 border-amber-600 text-amber-600' : 'border-slate-50 bg-slate-50 text-slate-400'}`}>{t.sortRandom}</button>
+                                    <button onClick={() => updateSettings('sortMode', 'ng_desc')} className={`py-2 rounded-xl border-2 font-bold text-xs transition-all ${settings.sortMode === 'ng_desc' ? 'bg-amber-50 border-amber-600 text-amber-600' : 'border-slate-50 bg-slate-50 text-slate-400'}`}>{t.sortWeak}</button>
+                                </div>
                             </section>
+
+                            <section>
+                                <label className="text-xs font-bold text-slate-400 uppercase mb-2 block tracking-widest">{t.reviewFilter}</label>
+                                <div className="flex items-center gap-2">
+                                    <input type="number" min="0" value={settings.filterDays || ''} onChange={(e) => updateSettings('filterDays', parseInt(e.target.value) || 0)} placeholder="0" className="w-20 p-2.5 border-2 border-slate-100 rounded-xl font-bold text-center text-slate-700 bg-white" />
+                                    <span className="text-sm font-bold text-slate-600">{t.reviewDays}</span>
+                                </div>
+                            </section>
+
+                            <section>
+                                <label className="text-xs font-bold text-slate-400 uppercase mb-2 block tracking-widest">{t.memoryLen} ({t.charCount})</label>
+                                <input type="number" min="2" max="100" step="2" value={settings.memoryLength || 12} onChange={(e) => updateSettings('memoryLength', Math.max(2, parseInt(e.target.value) || 12))} className="w-full p-2.5 border-2 border-slate-100 rounded-xl font-bold text-center text-slate-700 bg-white" />
+                            </section>
+
                             <section>
                                 <label className="flex items-center gap-3 p-3 border-2 border-slate-100 rounded-xl cursor-pointer hover:bg-slate-50">
                                     <input type="checkbox" checked={settings.alwaysShowAnswer} onChange={(e) => updateSettings('alwaysShowAnswer', e.target.checked)} className="w-5 h-5 accent-amber-500" />
@@ -1343,10 +1370,11 @@
             const [countdownText, setCountdownText] = useState('');
             const [startTime, setStartTime] = useState(0);
             const [endTime, setEndTime] = useState(0);
+            const [scoreData, setScoreData] = useState(null);
             
             const [settings, setSettings] = useState(() => {
-                const saved = localStorage.getItem('letter_settings_v7');
-                return saved ? JSON.parse(saved) : { activeRows: ['あ', 'か', 'さ', 'た', 'な', 'は'], qCount: 10, autoNext: 0, alwaysShowAnswer: false };
+                const saved = localStorage.getItem('letter_settings_v8');
+                return saved ? JSON.parse(saved) : { activeRows: ['あ', 'か', 'さ', 'た', 'な', 'は'], sortMode: 'random', filterDays: 0, memoryLength: 12, autoNext: 0, alwaysShowAnswer: false };
             });
 
             const [masterData, setMasterData] = useState(() => {
@@ -1358,26 +1386,61 @@
                 return DEFAULT_LETTER_MASTER;
             });
 
+            const [stats, setStats] = useState(() => JSON.parse(localStorage.getItem('letter_stats') || '{}'));
+
+            const updateStats = (pair, isOk) => {
+                const newStats = { ...stats };
+                if (!newStats[pair]) newStats[pair] = { ok: 0, ng: 0, lastReviewed: 0 };
+                if (isOk) newStats[pair].ok++; else newStats[pair].ng++;
+                newStats[pair].lastReviewed = Date.now();
+                setStats(newStats);
+                localStorage.setItem('letter_stats', JSON.stringify(newStats));
+            };
+
             const updateSettings = (key, val) => {
                 const ns = {...settings, [key]: val};
                 setSettings(ns);
-                localStorage.setItem('letter_settings_v7', JSON.stringify(ns));
+                localStorage.setItem('letter_settings_v8', JSON.stringify(ns));
             };
 
-            const generateQuestions = useCallback(() => {
-                const pool = [];
+            const generateQuestions = useCallback((forMemory) => {
+                let pool = [];
                 settings.activeRows.forEach(row => {
                     const data = masterData[row];
                     if (data) Object.keys(data).forEach(pair => pool.push({ pair, answer: data[pair], row }));
                 });
+
                 if (pool.length === 0) return [];
-                const shuffled = [...pool].sort(() => 0.5 - Math.random());
-                return shuffled.slice(0, settings.qCount);
-            }, [settings, masterData]);
+
+                if (settings.filterDays > 0) {
+                    const cutoff = Date.now() - (settings.filterDays * 86400000);
+                    pool = pool.filter(q => {
+                        const s = stats[q.pair];
+                        return !s || !s.lastReviewed || s.lastReviewed < cutoff;
+                    });
+                }
+
+                if (forMemory) {
+                    const shuffled = [...pool].sort(() => 0.5 - Math.random());
+                    const count = Math.ceil((settings.memoryLength || 12) / 2);
+                    return shuffled.slice(0, count);
+                } else {
+                    if (settings.sortMode === 'ng_desc') {
+                        pool.sort((a, b) => {
+                            const ngA = stats[a.pair]?.ng || 0;
+                            const ngB = stats[b.pair]?.ng || 0;
+                            return ngB - ngA;
+                        });
+                    } else {
+                        pool.sort(() => 0.5 - Math.random());
+                    }
+                    return pool; 
+                }
+            }, [settings, masterData, stats]);
 
             const startTraining = (type) => {
-                const qs = generateQuestions();
-                if (qs.length === 0) { alert('選択された行にデータがありません'); return; }
+                const qs = generateQuestions(type === 'memory');
+                if (qs.length === 0) { alert('条件に一致するデータがありません'); return; }
                 setTrainingType(type);
                 setQuestions(qs);
                 setCurrentIndex(0);
@@ -1404,10 +1467,20 @@
                 }
             };
 
+            const handleResult = (isOk) => {
+                const q = questions[currentIndex];
+                updateStats(q.pair, isOk);
+                handleNext();
+            };
+
             const handleNext = () => {
                 if (currentIndex + 1 >= questions.length) {
                     setEndTime(performance.now());
-                    setGameState(trainingType === 'memory' ? 'result' : 'menu');
+                    if (trainingType === 'memory') {
+                        setGameState('recall');
+                    } else {
+                        setGameState('menu'); 
+                    }
                 } else {
                     setCurrentIndex(prev => prev + 1);
                     setInput("");
@@ -1415,24 +1488,54 @@
                 }
             };
             
-            const handleMemoryInput = () => {
-                const ans = [...userAnswers];
-                ans[currentIndex] = input;
-                setUserAnswers(ans);
-                handleNext();
+            const handlePrev = () => {
+                setCurrentIndex(Math.max(0, currentIndex - 1));
+            };
+
+            const handleFirst = () => {
+                setCurrentIndex(0);
+            };
+
+            const checkMemory = () => {
+                const endT = performance.now();
+                setEndTime(endT);
+                
+                const targetStr = questions.map(q => q.pair).join('');
+                let mistakes = 0;
+                // Simple Levenshtein or just character mismatch? 
+                // Let's stick to simple index mismatch for now as lengths match usually
+                const len = Math.max(targetStr.length, input.length);
+                for(let i=0; i<len; i++) {
+                    if (input[i] !== targetStr[i]) mistakes++;
+                }
+                
+                const time = endT - startTime;
+                const penaltySeconds = mistakes * 30; // 30s per mistake as requested
+                const finalScore = time + (penaltySeconds * 1000);
+                const correctCount = len - mistakes; // Approximate
+                
+                setScoreData({
+                    time,
+                    penaltySeconds,
+                    finalScore,
+                    correctCount,
+                    totalCount: targetStr.length
+                });
+
+                setGameState('result');
             };
 
             useEffect(() => {
                 let timer;
-                if (gameState === 'training' && settings.autoNext > 0 && trainingType === 'conversion') {
-                    if (!isAnswerShown) {
-                         timer = setTimeout(() => setIsAnswerShown(true), settings.autoNext * 1000);
+                if (gameState === 'training' && settings.autoNext > 0) {
+                    if (trainingType === 'conversion') {
+                         
                     } else {
                          timer = setTimeout(() => handleNext(), settings.autoNext * 1000);
                     }
                 }
                 return () => clearTimeout(timer);
-            }, [gameState, currentIndex, isAnswerShown, settings.autoNext, trainingType]);
+            }, [gameState, currentIndex, settings.autoNext, trainingType]);
 
             const handleEditAnswer = () => {
                 const q = questions[currentIndex];
@@ -1472,8 +1575,12 @@
 
             if (gameState === 'countdown') return <div className="h-full flex items-center justify-center bg-amber-500 text-white"><div className="text-8xl font-black animate-countdown px-4 text-center">{countdownText}</div></div>;
 
-            if (gameState === 'training') {
+            if (gameState === 'training') { // Used for both Conversion (manual) and Memory (viewing phase)
                 const q = questions[currentIndex];
+                const s = stats[q.pair] || { ok: 0, ng: 0 };
+                const totalAttempts = s.ok + s.ng;
+                const accuracy = totalAttempts > 0 ? Math.round((s.ok / totalAttempts) * 100) : 0;
+
                 return (
                     <div className="h-full flex flex-col p-6 bg-amber-50">
                         <div className="flex justify-between items-center mb-6">
@@ -1485,76 +1592,120 @@
                         </div>
                         
                         <div className="flex-grow flex flex-col items-center justify-center">
-                            <div className="text-8xl font-black text-amber-800 mb-10">{q.pair}</div>
+                            <div className="text-8xl font-black text-amber-800 mb-4">{q.pair}</div>
                             
                             {trainingType === 'conversion' && (
-                                <div className="h-32 flex items-center justify-center w-full">
-                                    {isAnswerShown ? (
-                                        <div className="flex flex-col items-center animate-in fade-in slide-in-from-bottom-4 duration-300">
-                                            <div className="text-5xl font-black text-slate-600 mb-4 text-center">{q.answer}</div>
-                                            <button onClick={handleEditAnswer} className="text-slate-300 hover:text-amber-500 transition-colors text-sm font-bold flex items-center gap-2 px-4 py-2 bg-white rounded-full shadow-sm"><i className="fa-solid fa-pen"></i> {t.edit}</button>
-                                        </div>
-                                    ) : (
-                                        <button onClick={() => setIsAnswerShown(true)} className="px-8 py-4 bg-white/60 text-slate-400 font-bold rounded-2xl border-2 border-slate-200 hover:bg-white hover:text-amber-500 hover:border-amber-200 transition-all">答えを表示</button>
-                                    )}
-                                </div>
+                                <>
+                                    <div className="text-xs font-bold text-amber-600 mb-4 bg-amber-100 px-3 py-1 rounded-full">{t.accuracyRate}: {accuracy}% ({s.ok}/{totalAttempts})</div>
+
+                                    <div className="h-32 flex items-center justify-center w-full mb-4">
+                                        {isAnswerShown ? (
+                                            <div className="flex flex-col items-center animate-in fade-in slide-in-from-bottom-4 duration-300">
+                                                <div className="text-5xl font-black text-slate-600 mb-2 text-center">{q.answer}</div>
+                                                <button onClick={handleEditAnswer} className="text-slate-300 hover:text-amber-500 transition-colors text-sm font-bold flex items-center gap-2 px-4 py-2 bg-white rounded-full shadow-sm"><i className="fa-solid fa-pen"></i> {t.edit}</button>
+                                            </div>
+                                        ) : (
+                                            <button onClick={() => setIsAnswerShown(true)} className="px-8 py-4 bg-white/60 text-slate-400 font-bold rounded-2xl border-2 border-slate-200 hover:bg-white hover:text-amber-500 hover:border-amber-200 transition-all">答えを表示</button>
+                                        )}
+                                    </div>
+                                    <div className="w-full grid grid-cols-2 gap-4 max-w-sm">
+                                        <button onClick={() => handleResult(false)} className="py-6 bg-red-100 text-red-600 font-black rounded-2xl shadow-sm active:scale-95 transition-all text-xl">NG</button>
+                                        <button onClick={() => handleResult(true)} className="py-6 bg-green-100 text-green-600 font-black rounded-2xl shadow-sm active:scale-95 transition-all text-xl">OK</button>
+                                    </div>
+                                    <button onClick={() => setGameState('menu')} className="mt-6 text-slate-400 font-bold text-sm underline">トレーニングを終了</button>
+                                </>
                             )}
 
                             {trainingType === 'memory' && (
-                                <div className="w-full max-w-sm">
-                                    <input 
-                                        type="text" 
-                                        value={input} 
-                                        autoFocus 
-                                        onChange={e => setInput(e.target.value)} 
-                                        onKeyDown={e => e.key === 'Enter' && handleMemoryInput()}
-                                        className="w-full p-6 text-center text-3xl font-bold border-4 border-amber-200 rounded-3xl outline-none focus:border-amber-500 bg-white shadow-lg" 
-                                        placeholder="イメージを入力..." 
-                                    />
-                                </div>
+                                <MemoryNavControls 
+                                    onFirst={handleFirst} 
+                                    onPrev={handlePrev} 
+                                    onNext={handleNext} 
+                                    onFinish={() => setGameState('recall')} 
+                                    current={currentIndex}
+                                    total={questions.length}
+                                    t={t}
+                                />
                             )}
                         </div>
-                        
-                        <button onClick={trainingType === 'memory' ? handleMemoryInput : handleNext} className="w-full py-8 bg-white text-amber-600 text-2xl font-black rounded-[2rem] shadow-xl active:scale-95 transition-all">
-                            {currentIndex + 1 >= questions.length ? t.finish : t.next}
-                        </button>
+                    </div>
+                );
+            }
+
+            if (gameState === 'recall') {
+                return (
+                    <div className="h-full flex flex-col p-6 bg-slate-50">
+                        <div className="flex justify-between items-center mb-6">
+                            <button onClick={handleHomeClick} className="w-8 h-8 flex items-center justify-center bg-white rounded-full text-slate-500 hover:bg-slate-200 transition-colors z-50"><i className="fa-solid fa-house text-xs"></i></button>
+                            <span className="font-bold text-slate-400">{t.recallInput}</span>
+                            <div className="w-8"></div>
+                        </div>
+                        <div className="flex-grow flex flex-col items-center justify-center max-w-md mx-auto w-full">
+                            <div className="text-sm font-bold text-slate-400 mb-2 w-full text-left">覚えた文字を入力 (ヒントなし)</div>
+                            <input 
+                                type="text" 
+                                value={input} 
+                                autoFocus
+                                onChange={e => setInput(e.target.value)} 
+                                className="w-full p-6 text-2xl font-bold border-4 border-amber-200 rounded-3xl outline-none focus:border-amber-500 bg-white shadow-lg mb-8" 
+                                placeholder="あかさたな..." 
+                            />
+                            <button onClick={checkMemory} className="w-full py-6 bg-amber-600 text-white font-black text-xl rounded-2xl shadow-lg active:scale-95">{t.checkResult}</button>
+                        </div>
                     </div>
                 );
             }
 
             if (gameState === 'result') {
-                const correctCount = userAnswers.filter((ans, i) => ans === questions[i].answer).length;
+                const targetStr = questions.map(q => q.pair).join('');
+                
                 return (
                     <div className="h-full flex flex-col p-4 overflow-y-auto no-scrollbar">
                         <div className="flex justify-between items-center mb-6 pt-2">
                             <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2"><i className="fa-solid fa-square-check text-amber-500"></i> {t.result}</h2>
                             <button onClick={() => setGameState('menu')} className="w-10 h-10 flex items-center justify-center bg-slate-100 rounded-full text-slate-500"><i className="fa-solid fa-xmark"></i></button>
                         </div>
-                        <div className="bg-amber-50 rounded-[2rem] p-8 w-full mb-6 flex justify-between items-center border border-amber-100 shadow-sm">
-                            <div><div className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-1">{t.accuracy}</div><div className="text-4xl font-black text-slate-800">{correctCount} <span className="text-lg text-slate-400">/ {questions.length}</span></div></div>
-                            <div><div className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-1">{t.rawTime}</div><div className="text-4xl font-black text-slate-800">{formatTime(endTime - startTime)}</div></div>
+                        
+                        <div className="w-full bg-amber-500 text-white rounded-[2.5rem] p-8 sm:p-10 mb-8 shadow-2xl relative flex flex-col items-center text-center">
+                            <div className="text-[11px] font-black opacity-60 uppercase tracking-widest mb-1">{t.finalScore}</div>
+                            <div className="text-6xl sm:text-7xl font-mono font-black mb-4 tracking-tighter drop-shadow-lg truncate w-full">{formatTime(scoreData.finalScore)}</div>
+                            <div className="w-full pt-8 border-t border-white/20">
+                                <div className="grid grid-cols-2 w-full gap-4">
+                                    <div className="flex flex-col items-center"><div className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-1">{t.rawTime}</div><div className="font-mono font-black text-2xl">{formatTime(scoreData.time)}</div></div>
+                                    <div className="flex flex-col items-center"><div className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-1">{t.accuracy}</div><div className="font-mono font-black text-2xl tracking-tight">{scoreData.correctCount} / {scoreData.totalCount}</div></div>
+                                </div>
+                                <div className="grid grid-cols-2 w-full gap-4 mt-4">
+                                     <div className="flex flex-col items-center col-span-2"><div className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-1">{t.penalty}</div><div className={`font-mono font-black text-2xl tracking-tight ${scoreData.penaltySeconds > 0 ? 'text-red-300' : 'text-green-300'}`}>+{scoreData.penaltySeconds}s <span className="text-[10px] opacity-70">({t.penalty30s})</span></div></div>
+                                </div>
+                            </div>
                         </div>
-                        <div className="space-y-2 mb-10">
-                            {questions.map((q, i) => {
-                                const isCorrect = userAnswers[i] === q.answer;
-                                return (
-                                    <div key={i} className={`p-4 rounded-xl border flex justify-between items-center ${isCorrect ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'}`}>
-                                        <div>
-                                            <div className="font-black text-lg text-slate-700">{q.pair} <i className="fa-solid fa-arrow-right text-xs text-slate-300 mx-2"></i> {q.answer}</div>
-                                            <div className={`text-sm font-bold ${isCorrect ? 'text-green-600' : 'text-red-500'}`}>{isCorrect ? 'Correct' : `Your Ans: ${userAnswers[i] || '(空欄)'}`}</div>
-                                        </div>
-                                        {isCorrect ? <i className="fa-solid fa-check text-green-500"></i> : <i className="fa-solid fa-xmark text-red-500"></i>}
-                                    </div>
-                                );
-                            })}
+
+                        <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 mb-10 flex-grow">
+                             <div className="mb-4">
+                                <div className="text-xs font-bold text-slate-400 mb-1">正解</div>
+                                <div className="text-xl font-bold text-slate-700 tracking-widest break-all">{targetStr}</div>
+                             </div>
+                             <div>
+                                <div className="text-xs font-bold text-slate-400 mb-1">あなたの回答</div>
+                                <div className="text-xl font-bold tracking-widest break-all">
+                                    {targetStr.split('').map((char, i) => {
+                                        const userChar = input[i];
+                                        let color = 'text-slate-300';
+                                        if (userChar === char) color = 'text-green-600';
+                                        else if (userChar) color = 'text-red-500 bg-red-50';
+                                        return <span key={i} className={color}>{char}</span>;
+                                    })}
+                                </div>
+                             </div>
                         </div>
-                        <button onClick={() => startTraining('memory')} className="w-full py-6 bg-slate-900 text-white font-black rounded-[2rem] shadow-lg mb-10 active:scale-95">{t.retry}</button>
+                        
+                        <button onClick={() => startTraining('memory')} className="w-full py-6 bg-slate-900 text-white font-black rounded-[2rem] shadow-lg mb-4 active:scale-95">{t.retry}</button>
                     </div>
                 );
             }
             return null;
         };
-
+        // ... (HomeView and App same)
         const HomeView = ({ onSelectMode, onOpenSettings, t }) => {
             const modes = [
                 { id: 'calendar', label: t.calendar, icon: 'fa-calendar-days', color: 'bg-indigo-500', desc: t.descCal },
@@ -1601,35 +1752,17 @@
                     return { lang: 'ja', theme: 'light', countdownSeconds: 3 };
                 }
             });
-            
-            useEffect(() => { 
-                localStorage.setItem('global_settings', JSON.stringify(globalSettings)); 
-            }, [globalSettings]);
-            
+            useEffect(() => { localStorage.setItem('global_settings', JSON.stringify(globalSettings)); }, [globalSettings]);
             const t = translations[globalSettings.lang] || translations.ja;
 
             return (
                 <main className="w-full h-full flex flex-col relative overflow-hidden bg-slate-50">
-                    {mode === 'home' && (
-                        <HomeView 
-                            t={t} 
-                            onSelectMode={setMode} 
-                            onOpenSettings={() => setIsGlobalSettingsOpen(true)} 
-                        />
-                    )}
+                    {mode === 'home' && (<HomeView t={t} onSelectMode={setMode} onOpenSettings={() => setIsGlobalSettingsOpen(true)} />)}
                     {mode === 'calendar' && <CalendarTrainer t={t} globalSettings={globalSettings} onBack={() => setMode('home')} />}
                     {mode === 'number' && <NumberTrainer t={t} globalSettings={globalSettings} onBack={() => setMode('home')} />}
                     {mode === 'card' && <CardTrainer t={t} globalSettings={globalSettings} onBack={() => setMode('home')} />}
                     {mode === 'letterpair' && <LetterPairTrainer t={t} globalSettings={globalSettings} onBack={() => setMode('home')} />}
-                    
-                    {isGlobalSettingsOpen && (
-                        <GlobalSettingsModal 
-                            globalSettings={globalSettings} 
-                            setGlobalSettings={setGlobalSettings} 
-                            onClose={() => setIsGlobalSettingsOpen(false)} 
-                            t={t} 
-                        />
-                    )}
+                    {isGlobalSettingsOpen && (<GlobalSettingsModal globalSettings={globalSettings} setGlobalSettings={setGlobalSettings} onClose={() => setIsGlobalSettingsOpen(false)} t={t} />)}
                 </main>
             );
         };
