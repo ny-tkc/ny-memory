@@ -7,6 +7,11 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Generated App Icons -->
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='100' fill='%234f46e5'/%3E%3Cpath d='M256 112c-79.5 0-144 64.5-144 144s64.5 144 144 144 144-64.5 144-144-64.5-144-144-144zm0 240c-53 0-96-43-96-96s43-96 96-96 96 43 96 96-43 96-96 96z' fill='white' opacity='0.2'/%3E%3Cpath d='M352 256c0 53-43 96-96 96s-96-43-96-96 43-96 96-96 96 43 96 96zm-48 0c0-26.5-21.5-48-48-48s-48 21.5-48 48 21.5 48 48 48 48-21.5 48-48z' fill='white'/%3E%3C/svg%3E" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='100' fill='%234f46e5'/%3E%3Cpath d='M256 112c-79.5 0-144 64.5-144 144s64.5 144 144 144 144-64.5 144-144-64.5-144-144-144zm0 240c-53 0-96-43-96-96s43-96 96-96 96 43 96 96-43 96-96 96z' fill='white' opacity='0.2'/%3E%3Cpath d='M352 256c0 53-43 96-96 96s-96-43-96-96 43-96 96-96 96 43 96 96zm-48 0c0-26.5-21.5-48-48-48s-48 21.5-48 48 21.5 48 48 48 48-21.5 48-48z' fill='white'/%3E%3C/svg%3E">
+
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Noto+Sans+JP:wght@400;500;700;900&display=swap');
         
@@ -50,12 +55,6 @@
             100% { transform: scale(1); opacity: 1; }
         }
         .animate-pop { animation: pop-in 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-
-        /* Card Pip Layouts */
-        .pip-grid { display: grid; width: 100%; height: 100%; padding: 15%; box-sizing: border-box; }
-        .col-1 { grid-template-columns: 1fr; }
-        .col-2 { grid-template-columns: 1fr 1fr; }
-        .col-3 { grid-template-columns: 1fr 1fr 1fr; }
     </style>
 <link rel="stylesheet" href="/index.css">
 </head>
@@ -167,7 +166,7 @@
 
         const MemoryNavControls = ({ onFirst, onPrev, onNext, onFinish, current, total, t }) => {
             return (
-                <div className="w-full max-w-sm grid grid-cols-4 gap-2 mt-auto pt-4">
+                <div className="w-full max-w-sm grid grid-cols-4 gap-2 mt-auto pt-4 flex-none">
                     <button onClick={onFirst} className="bg-slate-100 text-slate-500 rounded-xl h-14 flex items-center justify-center text-lg hover:bg-slate-200 active:scale-95 transition-all"><i className="fa-solid fa-backward-step"></i></button>
                     <button onClick={onPrev} className="bg-slate-100 text-slate-500 rounded-xl h-14 flex items-center justify-center text-lg hover:bg-slate-200 active:scale-95 transition-all"><i className="fa-solid fa-chevron-left"></i></button>
                     <button onClick={onNext} className="bg-slate-800 text-white rounded-xl h-14 flex items-center justify-center text-lg hover:bg-slate-700 active:scale-95 transition-all">
@@ -180,7 +179,6 @@
 
         const GlobalSettingsModal = ({ globalSettings, setGlobalSettings, onClose, t }) => {
             if (!t) return null;
-            // ... (rest of GlobalSettingsModal same as before)
             const handleReset = () => { if (window.confirm(t.resetConfirm)) { localStorage.clear(); window.location.reload(); } };
             const handleExport = () => {
                 const data = { ...localStorage };
@@ -254,25 +252,68 @@
         const Card = ({ suit, value, className = "" }) => {
             const isRed = suit === 'heart' || suit === 'diamond';
             const colorClass = isRed ? 'text-red-500' : 'text-slate-800';
-            
-            // Generate Pips for 2-10
-            const renderPips = (val) => {
-                const n = parseInt(val);
-                if(isNaN(n)) return null; 
-                // Simple grid patterns
-                return (
-                    <div className={`w-full h-full grid grid-cols-3 p-2 sm:p-4 gap-1 ${className.includes('w-24') ? 'text-xs' : 'text-base sm:text-lg'}`}>
-                        {[...Array(n)].map((_, i) => (
-                             <div key={i} className={`flex items-center justify-center ${i >= 3 && i < n-3 && n > 6 ? 'self-center' : ''}`} style={{gridColumn: (n < 4 ? '2' : 'auto')}}>
-                                {SUIT_ICONS[suit]}
-                             </div>
-                        ))}
-                    </div>
-                );
-            };
-
             const isFace = ['J', 'Q', 'K'].includes(value);
             const isAce = value === 'A';
+            const n = parseInt(value);
+
+            // Render Pips based on standard card layouts
+            const Pip = ({ rotate=false }) => (
+                <div className={`flex items-center justify-center ${rotate ? 'rotate-180' : ''}`} style={{width:'100%', height:'100%'}}>{SUIT_ICONS[suit]}</div>
+            );
+
+            // 3-Column Grid for Pips
+            let pipsLayout = null;
+            if (!isNaN(n) && n >= 2 && n <= 10) {
+                const cols = [[], [], []]; // Left, Mid, Right
+                
+                // Common Positions
+                const Top = <div key="t" className="absolute top-0 w-full h-1/4 p-1"><Pip /></div>;
+                const Bot = <div key="b" className="absolute bottom-0 w-full h-1/4 p-1"><Pip rotate /></div>;
+                const Mid = <div key="m" className="absolute top-1/2 -translate-y-1/2 w-full h-1/4 p-1"><Pip /></div>;
+                const MidRot = <div key="mr" className="absolute top-1/2 -translate-y-1/2 w-full h-1/4 p-1"><Pip rotate /></div>;
+                const MidTop = <div key="mt" className="absolute top-[25%] w-full h-1/4 p-1"><Pip /></div>;
+                const MidBot = <div key="mb" className="absolute bottom-[25%] w-full h-1/4 p-1"><Pip rotate /></div>;
+                const Center = <div key="c" className="absolute top-1/2 -translate-y-1/2 w-full h-1/4 p-1"><Pip /></div>; // Center of card
+
+                // Helper to populate columns
+                const colWrapper = (content, colIdx) => (
+                    <div key={colIdx} className="relative h-full w-1/3">{content}</div>
+                );
+
+                let left = [], mid = [], right = [];
+
+                if(n >= 4) { left.push(Top, Bot); right.push(Top, Bot); }
+                if(n >= 6) { left.push(Mid); right.push(Mid); }
+                if(n === 2) { mid.push(Top, Bot); }
+                if(n === 3) { mid.push(Top, Center, Bot); }
+                if(n === 5) { mid.push(Center); }
+                if(n === 7) { mid.push(MidTop); }
+                if(n === 8) { mid.push(MidTop, MidBot); }
+                if(n === 9) { 
+                    // 9 is 4 corners + 2 mid + 1 center? No, 9 is typically 2 cols of 4 + 1 center
+                    left = [Top, MidTop, MidBot, Bot];
+                    right = [Top, MidTop, MidBot, Bot];
+                    mid = [Center];
+                }
+                if(n === 10) {
+                    left = [Top, MidTop, MidBot, Bot];
+                    right = [Top, MidTop, MidBot, Bot];
+                    mid = [MidTop, MidBot]; // Actually placed at 1/3 and 2/3 roughly
+                    // Adjust 10 mid for better visual
+                    mid = [
+                        <div key="t10" className="absolute top-[16%] w-full h-1/4 p-1"><Pip /></div>,
+                        <div key="b10" className="absolute bottom-[16%] w-full h-1/4 p-1"><Pip rotate /></div>
+                    ];
+                }
+
+                pipsLayout = (
+                    <div className="absolute inset-0 px-3 py-6 sm:px-5 sm:py-8 flex w-full h-full">
+                        {colWrapper(left, 0)}
+                        {colWrapper(mid, 1)}
+                        {colWrapper(right, 2)}
+                    </div>
+                );
+            }
 
             return (
                 <div className={`bg-white rounded-lg border border-slate-300 card-shadow flex flex-col items-center justify-center relative select-none overflow-hidden ${className}`}>
@@ -281,23 +322,20 @@
                         <span className="text-[10px]">{SUIT_ICONS[suit]}</span>
                     </div>
                     
-                    <div className={`w-full h-full flex items-center justify-center ${colorClass}`}>
-                        {isAce && <div className="text-5xl sm:text-6xl">{SUIT_ICONS[suit]}</div>}
-                        {isFace && (
-                            <div className="w-3/4 h-3/4 border-2 border-slate-300 rounded flex flex-col items-center justify-center relative">
-                                <div className="absolute top-1 left-2 text-xl opacity-20">{SUIT_ICONS[suit]}</div>
-                                <div className="absolute bottom-1 right-2 text-xl opacity-20 rotate-180">{SUIT_ICONS[suit]}</div>
-                                <div className="text-4xl sm:text-6xl font-serif font-bold opacity-80">{value}</div>
-                                <div className="text-sm font-bold uppercase tracking-widest mt-1 opacity-50">{isRed ? 'RED' : 'BLACK'}</div>
+                    {isAce && <div className={`text-6xl ${colorClass}`}>{SUIT_ICONS[suit]}</div>}
+                    
+                    {isFace && (
+                        <div className={`w-full h-full flex flex-col items-center justify-center ${colorClass}`}>
+                            <div className="text-4xl mb-1 opacity-90">
+                                {value === 'K' && <i className="fa-solid fa-crown"></i>}
+                                {value === 'Q' && <i className="fa-solid fa-chess-queen"></i>}
+                                {value === 'J' && <i className="fa-solid fa-user-shield"></i>}
                             </div>
-                        )}
-                        {!isAce && !isFace && (
-                             /* Simplified Pip Rendering for numeric cards 2-10 */
-                             <div className="grid grid-cols-2 w-full h-full px-4 py-6 gap-1 place-items-center">
-                                 {[...Array(parseInt(value))].map((_,i) => <div key={i} className="text-lg sm:text-2xl">{SUIT_ICONS[suit]}</div>)}
-                             </div>
-                        )}
-                    </div>
+                            <div className="text-3xl font-serif font-black">{value}</div>
+                        </div>
+                    )}
+
+                    {!isAce && !isFace && pipsLayout}
 
                     <div className={`absolute bottom-1 right-1.5 flex flex-col items-center leading-none rotate-180 ${colorClass}`}>
                         <span className="text-sm font-bold tracking-tighter">{value}</span>
@@ -361,8 +399,6 @@
         };
 
         const CalendarTrainer = ({ onBack, globalSettings, t }) => {
-            // ... (Same as existing CalendarTrainer code, no changes requested here specifically)
-            // Just copying the logic to ensure integrity.
             const [gameState, setGameState] = useState('idle');
             const [isLocalSettingsOpen, setIsLocalSettingsOpen] = useState(false);
             const [isHistoryOpen, setIsHistoryOpen] = useState(false);
@@ -550,7 +586,6 @@
                 return list;
             }, [settings.startDay, globalSettings.lang]);
 
-            // Calendar Render logic... (collapsed for brevity, assumed unchanged essentially)
             if (gameState === 'idle') return (
                 <div className="h-full flex flex-col p-4 overflow-y-auto no-scrollbar">
                     <div className="flex justify-between items-center mb-6">
@@ -575,11 +610,33 @@
                         </button>
                         <button onClick={() => setIsHistoryOpen(true)} className="flex items-center gap-2 text-slate-400 font-bold text-sm hover:text-indigo-600 transition-colors mt-4"><i className="fa-solid fa-clock-rotate-left"></i> {t.historyMenu}</button>
                     </div>
-                    {isLocalSettingsOpen && (<div className="fixed inset-0 z-[110] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm"><div className="bg-white w-full max-w-sm rounded-[2rem] p-6 shadow-2xl overflow-y-auto max-h-[80vh] no-scrollbar"><h3 className="text-lg font-bold mb-6 flex items-center gap-2 text-slate-800"><i className="fa-solid fa-cog text-indigo-500"></i> {t.gameSettings}</h3><div className="space-y-5"><section><label className="text-xs font-bold text-slate-400 uppercase mb-2 block tracking-widest">{t.yearMode}</label><div className="grid grid-cols-3 gap-2">{['western', 'japanese', 'both'].map(m => <button key={m} onClick={() => updateLocalSettings('yearMode', m)} className={`py-2.5 rounded-xl border-2 font-bold text-xs transition-all ${settings.yearMode === m ? 'bg-indigo-50 border-indigo-600 text-indigo-600' : 'border-slate-50 bg-slate-50 text-slate-400'}`}>{m === 'japanese' ? t.era : t[m] || m}</button>)}</div></section><section><label className="text-xs font-bold text-slate-400 uppercase mb-2 block tracking-widest">{t.timerFormat}</label><div className="grid grid-cols-2 gap-2">{['mm:ss', 'ss'].map(f => <button key={f} onClick={() => updateLocalSettings('timerFormat', f)} className={`py-2.5 rounded-xl border-2 font-bold text-xs transition-all ${settings.timerFormat === f ? 'bg-indigo-50 border-indigo-600 text-indigo-600' : 'border-slate-50 bg-slate-50 text-slate-400'}`}>{f === 'mm:ss' ? t.minSec : t.onlySec}</button>)}</div></section></div><button onClick={() => setIsLocalSettingsOpen(false)} className="w-full mt-8 py-4 bg-slate-900 text-white font-bold rounded-2xl shadow-lg active:scale-95 transition-all">{t.back}</button></div></div>)}
+                    {isLocalSettingsOpen && (
+                        <div className="fixed inset-0 z-[110] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm">
+                            <div className="bg-white w-full max-w-sm rounded-[2rem] p-6 shadow-2xl overflow-y-auto max-h-[80vh] no-scrollbar">
+                                <h3 className="text-lg font-bold mb-6 flex items-center gap-2 text-slate-800"><i className="fa-solid fa-cog text-indigo-500"></i> {t.gameSettings}</h3>
+                                <div className="space-y-5">
+                                    <section>
+                                        <label className="text-xs font-bold text-slate-400 uppercase mb-2 block tracking-widest">{t.yearMode}</label>
+                                        <div className="grid grid-cols-3 gap-2">{['western', 'japanese', 'both'].map(m => <button key={m} onClick={() => updateLocalSettings('yearMode', m)} className={`py-2.5 rounded-xl border-2 font-bold text-xs transition-all ${settings.yearMode === m ? 'bg-indigo-50 border-indigo-600 text-indigo-600' : 'border-slate-50 bg-slate-50 text-slate-400'}`}>{m === 'japanese' ? t.era : t[m] || m}</button>)}</div>
+                                    </section>
+                                    <section>
+                                        <label className="text-xs font-bold text-slate-400 uppercase mb-2 block tracking-widest">{t.timerFormat}</label>
+                                        <div className="grid grid-cols-2 gap-2">{['mm:ss', 'ss'].map(f => <button key={f} onClick={() => updateLocalSettings('timerFormat', f)} className={`py-2.5 rounded-xl border-2 font-bold text-xs transition-all ${settings.timerFormat === f ? 'bg-indigo-50 border-indigo-600 text-indigo-600' : 'border-slate-50 bg-slate-50 text-slate-400'}`}>{f === 'mm:ss' ? t.minSec : t.onlySec}</button>)}</div>
+                                    </section>
+                                    <section>
+                                        <label className="flex items-center gap-3 p-3 border-2 border-slate-100 rounded-xl cursor-pointer hover:bg-slate-50">
+                                            <input type="checkbox" checked={settings.showNumbers} onChange={(e) => updateLocalSettings('showNumbers', e.target.checked)} className="w-5 h-5 accent-indigo-500" />
+                                            <span className="font-bold text-sm text-slate-700">{t.showNums}</span>
+                                        </label>
+                                    </section>
+                                </div>
+                                <button onClick={() => setIsLocalSettingsOpen(false)} className="w-full mt-8 py-4 bg-slate-900 text-white font-bold rounded-2xl shadow-lg active:scale-95 transition-all">{t.back}</button>
+                            </div>
+                        </div>
+                    )}
                     {isHistoryOpen && <HistoryModal history={JSON.parse(localStorage.getItem('calendar_history') || '[]')} range={selectedRange} onClose={() => setIsHistoryOpen(false)} t={t} formatTime={formatTime} />}
                 </div>
             );
-            // ... (rest of CalendarTrainer returns same as before)
             if (gameState === 'countdown' || gameState === 'math_countdown') return <div className="h-full flex items-center justify-center bg-indigo-600 text-white"><div className="text-8xl font-black animate-countdown px-4 text-center">{countdownText}</div></div>;
             if (gameState === 'playing') return (
                 <div className="h-full flex flex-col p-4 overflow-hidden">
@@ -656,7 +713,7 @@
                 return (
                     <div className="h-full flex flex-col p-4 overflow-y-auto no-scrollbar">
                         <div className="flex justify-between items-center mb-6 pt-2"><div><h2 className="text-2xl font-black flex items-center gap-3 text-slate-800"><i className="fa-solid fa-award text-amber-500"></i> {t.result}</h2><span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">{t.mode}: {t[selectedRange] || selectedRange}</span></div><div className="flex gap-2"><button onClick={() => setIsHistoryOpen(true)} className="w-10 h-10 flex items-center justify-center bg-indigo-50 rounded-full text-indigo-600 shadow-sm transition-all hover:bg-indigo-100"><i className="fa-solid fa-clock-rotate-left"></i></button><button onClick={handleHomeClick} className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-slate-500 shadow-sm transition-all hover:text-indigo-600 z-50"><i className="fa-solid fa-house"></i></button></div></div>
-                        <div className="w-full bg-indigo-600 text-white rounded-[2.5rem] p-8 sm:p-10 mb-8 shadow-2xl relative flex flex-col items-center text-center">{isNewRecord && (<div className="absolute top-0 right-0 bg-yellow-400 text-yellow-900 text-[10px] font-black px-4 py-1.5 rounded-bl-2xl uppercase tracking-widest shadow-md">{t.newRecord}</div>)}<div className="text-[11px] font-black opacity-60 uppercase tracking-widest mb-1">{t.finalScore}</div><div className="text-6xl sm:text-7xl font-mono font-black mb-4 tracking-tighter drop-shadow-lg truncate w-full">{formatTime(currentResult.finalScore, settings.timerFormat)}</div><div className="flex items-center gap-2 mb-10 bg-black/10 px-5 py-2 rounded-full"><i className="fa-solid fa-crown text-yellow-400 text-xs"></i><span className="text-sm font-black tracking-widest uppercase">{t.bestScore}: {best ? formatTime(best, settings.timerFormat) : '-'}</span></div><div className="w-full space-y-8 pt-8 border-t border-white/20"><div className="grid grid-cols-2 w-full gap-4"><div className="flex flex-col items-center"><div className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-1">{t.rawTime}</div><div className="font-mono font-black text-2xl">{formatTime(currentResult.totalTime, settings.timerFormat)}</div></div><div className="flex flex-col items-center"><div className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-1">{t.accuracy}</div><div className="font-mono font-black text-2xl tracking-tight">{correctCount} / 5</div></div></div><div className="grid grid-cols-2 w-full gap-4"><div className="flex flex-col items-center"><div className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-1">{t.avgTime}</div><div className="font-mono font-black text-2xl tracking-tight">{formatTime(avg, 'ss')}</div></div><div className="flex flex-col items-center"><div className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-1">{t.penalty}</div><div className={`font-mono font-black text-2xl tracking-tight ${currentResult.penaltySeconds > 0 ? 'text-red-300' : 'text-green-300'}`}>+{currentResult.penaltySeconds}s</div></div></div></div></div>
+                        <div className="w-full bg-indigo-600 text-white rounded-[2.5rem] p-8 sm:p-10 mb-8 shadow-2xl relative flex flex-col items-center text-center">{isNewRecord && (<div className="absolute top-0 right-0 bg-yellow-400 text-yellow-900 text-[10px] font-black px-4 py-1.5 rounded-bl-2xl uppercase tracking-widest shadow-md">{t.newRecord}</div>)}<div className="text-[11px] font-black opacity-60 uppercase tracking-widest mb-1">{t.finalScore}</div><div className="text-6xl sm:text-7xl font-mono font-black mb-4 tracking-tighter drop-shadow-lg truncate w-full">{formatTime(currentResult.finalScore, settings.timerFormat)}</div><div className="flex items-center gap-2 mb-10 bg-black/10 px-5 py-2 rounded-full"><i className="fa-solid fa-crown text-yellow-400 text-xs"></i><span className="text-sm font-black tracking-widest uppercase">{t.bestScore}: {best ? formatTime(best, settings.timerFormat) : '-'}</span></div><div className="w-full space-y-8 pt-8 border-t border-white/20"><div className="grid grid-cols-2 w-full gap-4"><div className="flex flex-col items-center"><div className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-1">{t.rawTime}</div><div className="font-mono font-black text-2xl">{formatTime(currentResult.totalTime, settings.timerFormat)}</div></div><div className="flex flex-col items-center"><div className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-1">{t.accuracy}</div><div className="font-mono font-black text-2xl tracking-tight">{correctCount} / 5</div></div></div><div className="grid grid-cols-2 w-full gap-4"><div className="flex flex-col items-center"><div className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-1">{t.penalty}</div><div className={`font-mono font-black text-2xl tracking-tight ${currentResult.penaltySeconds > 0 ? 'text-red-300' : 'text-green-300'}`}>+{currentResult.penaltySeconds}s</div></div></div></div></div>
                         <div className="mb-10 space-y-4">{currentResult.laps.map((lap, i) => (<div key={i} className="bg-white rounded-3xl p-5 border border-slate-100 flex items-center justify-between shadow-sm hover:shadow-md transition-shadow"><div className="flex items-center gap-4"><div className={`w-8 h-8 rounded-2xl flex items-center justify-center font-black text-xs ${lap.correct ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>{i + 1}</div><div className="flex flex-col"><span className="text-[10px] text-slate-400 font-black tracking-wider mb-0.5 uppercase">{lap.date}</span><span className="text-base font-bold text-slate-700">{lap.userAnswer} {!lap.correct && <span className="text-red-400 font-black ml-1">→ {lap.correctAnswer}</span>}</span></div></div><div className="flex flex-col items-end gap-1"><div className="text-xs font-mono font-black text-slate-400 tracking-tight">{formatTime(lap.duration, 'ss')}</div>{lap.correct ? <i className="fa-solid fa-circle-check text-green-500"></i> : <i className="fa-solid fa-circle-xmark text-red-400"></i>}</div></div>))}</div>
                         <div className="space-y-4 pb-12 mt-auto"><button onClick={startCountdown} className="w-full py-6 bg-indigo-600 text-white text-xl font-black rounded-[2rem] shadow-lg hover:shadow-xl active:scale-95 transition-all"><i className="fa-solid fa-rotate-right mr-3"></i> {t.retry}</button><button onClick={() => setGameState('idle')} className="w-full py-6 bg-white border-2 border-slate-100 text-slate-600 text-xl font-black rounded-[2rem] active:scale-95 transition-all"><i className="fa-solid fa-check mr-3"></i> {t.finish}</button></div>
                         {isHistoryOpen && <HistoryModal history={JSON.parse(localStorage.getItem('calendar_history') || '[]')} range={selectedRange} onClose={() => setIsHistoryOpen(false)} t={t} formatTime={formatTime} />}
@@ -1045,6 +1102,7 @@
             const [endTime, setEndTime] = useState(0);
             const [endlessNumber, setEndlessNumber] = useState('');
             const [isNewRecord, setIsNewRecord] = useState(false);
+            const [scoreData, setScoreData] = useState(null);
 
             const [settings, setSettings] = useState(() => {
                 const saved = localStorage.getItem('number_settings_v3');
@@ -1079,6 +1137,7 @@
                     setSequence(chunked);
                     setCurrentIndex(0);
                     setUserInput("");
+                    setScoreData(null);
                     
                     setGameState('countdown');
                     let count = globalSettings.countdownSeconds || 3;
@@ -1132,13 +1191,47 @@
             const handleBackspace = () => { setUserInput(prev => prev.slice(0, -1)); };
             
             const finishRecall = () => {
-                setEndTime(performance.now());
-                setGameState('result');
-                checkNewRecord();
-            };
+                const end = performance.now();
+                setEndTime(end);
+                
+                // Calculate Score
+                const rawSeq = sequence.join('');
+                let mistakes = 0;
+                const len = Math.max(rawSeq.length, userInput.length);
+                for(let i=0; i<len; i++) {
+                    if (rawSeq[i] !== userInput[i]) mistakes++;
+                }
+                
+                const time = end - startTime;
+                const penaltySeconds = mistakes * 5;
+                const finalScore = time + (penaltySeconds * 1000);
+                const correctCount = len - mistakes;
 
-            const checkNewRecord = () => {
-                setIsNewRecord(false); 
+                const records = JSON.parse(localStorage.getItem('number_records') || '[]');
+                const best = records.length > 0 ? Math.min(...records.map(r => r.finalScore)) : null;
+                const isNew = best === null || finalScore < best;
+
+                // Save Record
+                const newRecord = {
+                    timestamp: Date.now(),
+                    totalDigits: settings.totalDigits,
+                    time,
+                    penaltySeconds,
+                    finalScore,
+                    accuracy: correctCount
+                };
+                localStorage.setItem('number_records', JSON.stringify([...records, newRecord].slice(-100))); 
+                
+                if (isNew) {
+                    confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+                }
+
+                setIsNewRecord(isNew);
+                setScoreData({
+                    time, penaltySeconds, finalScore, correctCount, rawLen: rawSeq.length
+                });
+
+                setGameState('result');
             };
 
             const handleHomeClick = () => handleHomeWithConfirm(gameState, onBack, t);
@@ -1205,7 +1298,7 @@
                 const formattedInput = userInput.replace(new RegExp(`.{1,${settings.digitsPerGroup}}`, 'g'), '$& ').trim();
                 return (
                     <div className="h-full flex flex-col p-4 bg-slate-50">
-                         <div className="mb-4 flex-grow flex flex-col">
+                         <div className="mb-4 flex-grow flex flex-col min-h-0">
                             <div className="flex justify-between items-center mb-2 flex-none">
                                 <div className="flex items-center gap-4">
                                     <button onClick={handleHomeClick} className="w-8 h-8 flex items-center justify-center bg-white rounded-full text-slate-500 hover:bg-slate-200 transition-colors z-50"><i className="fa-solid fa-house text-xs"></i></button>
@@ -1217,7 +1310,7 @@
                                 {formattedInput || <span className="text-slate-300 tracking-normal font-sans text-lg">{t.inputPlace}</span>}
                             </div>
                         </div>
-                        <div className="grid grid-cols-3 gap-2 mb-4 h-64 flex-none">
+                        <div className="grid grid-cols-3 gap-2 mb-4 h-64 flex-none shrink-0">
                             {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => <button key={n} onClick={() => handleRecallInput(n.toString())} className="bg-white rounded-xl shadow-sm border-b-4 border-slate-100 active:border-b-0 active:translate-y-1 transition-all text-2xl font-bold text-slate-700 flex items-center justify-center">{n}</button>)}
                             <button onClick={handleBackspace} className="bg-red-50 text-red-500 rounded-xl shadow-sm border-b-4 border-red-100 active:border-b-0 active:translate-y-1 transition-all text-xl font-bold flex items-center justify-center"><i className="fa-solid fa-delete-left"></i></button>
                             <button onClick={() => handleRecallInput('0')} className="bg-white rounded-xl shadow-sm border-b-4 border-slate-100 active:border-b-0 active:translate-y-1 transition-all text-2xl font-bold text-slate-700 flex items-center justify-center">0</button>
@@ -1227,35 +1320,11 @@
                 );
             }
 
-            // ... Result (Same)
-            if (gameState === 'result') {
-                const rawSeq = sequence.join('');
-                let mistakes = 0;
-                const len = Math.max(rawSeq.length, userInput.length);
-                for(let i=0; i<len; i++) {
-                    if (rawSeq[i] !== userInput[i]) mistakes++;
-                }
-                
-                const time = endTime - startTime;
-                const penaltySeconds = mistakes * 5;
-                const finalScore = time + (penaltySeconds * 1000);
-                const correctCount = len - mistakes;
-
+            // ... Result
+            if (gameState === 'result' && scoreData) {
+                const { finalScore, time, penaltySeconds, correctCount, rawLen } = scoreData;
                 const records = JSON.parse(localStorage.getItem('number_records') || '[]');
                 const best = records.length > 0 ? Math.min(...records.map(r => r.finalScore)) : null;
-                const isNew = best === null || finalScore < best;
-                
-                useEffect(() => {
-                    const newRecord = {
-                        timestamp: Date.now(),
-                        totalDigits: settings.totalDigits,
-                        time,
-                        penaltySeconds,
-                        finalScore,
-                        accuracy: correctCount
-                    };
-                    localStorage.setItem('number_records', JSON.stringify([...records, newRecord].slice(-100))); 
-                }, []); 
 
                 return (
                     <div className="h-full flex flex-col p-4 overflow-y-auto no-scrollbar">
@@ -1265,7 +1334,7 @@
                         </div>
                         
                          <div className="w-full bg-emerald-600 text-white rounded-[2.5rem] p-8 sm:p-10 mb-8 shadow-2xl relative flex flex-col items-center text-center">
-                            {isNew && (<div className="absolute top-0 right-0 bg-yellow-400 text-yellow-900 text-[10px] font-black px-4 py-1.5 rounded-bl-2xl uppercase tracking-widest shadow-md">{t.newRecord}</div>)}
+                            {isNewRecord && (<div className="absolute top-0 right-0 bg-yellow-400 text-yellow-900 text-[10px] font-black px-4 py-1.5 rounded-bl-2xl uppercase tracking-widest shadow-md">{t.newRecord}</div>)}
                             <div className="text-[11px] font-black opacity-60 uppercase tracking-widest mb-1">{t.finalScore}</div>
                             <div className="text-6xl sm:text-7xl font-mono font-black mb-4 tracking-tighter drop-shadow-lg truncate w-full">{formatTime(finalScore)}</div>
                             <div className="flex items-center gap-2 mb-10 bg-black/10 px-5 py-2 rounded-full"><i className="fa-solid fa-crown text-yellow-400 text-xs"></i><span className="text-sm font-black tracking-widest uppercase">{t.bestScore}: {best ? formatTime(Math.min(best, finalScore)) : formatTime(finalScore)}</span></div>
@@ -1273,7 +1342,7 @@
                             <div className="w-full space-y-8 pt-8 border-t border-white/20">
                                 <div className="grid grid-cols-2 w-full gap-4">
                                     <div className="flex flex-col items-center"><div className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-1">{t.rawTime}</div><div className="font-mono font-black text-2xl">{formatTime(time)}</div></div>
-                                    <div className="flex flex-col items-center"><div className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-1">{t.accuracy}</div><div className="font-mono font-black text-2xl tracking-tight">{correctCount} / {rawSeq.length}</div></div>
+                                    <div className="flex flex-col items-center"><div className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-1">{t.accuracy}</div><div className="font-mono font-black text-2xl tracking-tight">{correctCount} / {rawLen}</div></div>
                                 </div>
                                 <div className="grid grid-cols-2 w-full gap-4">
                                     <div className="flex flex-col items-center col-span-2"><div className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-1">{t.penalty}</div><div className={`font-mono font-black text-2xl tracking-tight ${penaltySeconds > 0 ? 'text-red-300' : 'text-green-300'}`}>+{penaltySeconds}s <span className="text-[10px] opacity-70">({t.fiveSecPenalty})</span></div></div>
@@ -1284,7 +1353,7 @@
                         <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 mb-6 flex-grow overflow-y-auto">
                             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">DETAILS</h3>
                             <div className="font-mono text-lg break-all tracking-widest leading-loose">
-                                {rawSeq.split('').map((char, i) => { 
+                                {sequence.join('').split('').map((char, i) => { 
                                     const userChar = userInput[i]; 
                                     let color = 'text-slate-300'; 
                                     if (userChar === char) color = 'text-emerald-600 font-bold'; 
@@ -1371,6 +1440,7 @@
             const [startTime, setStartTime] = useState(0);
             const [endTime, setEndTime] = useState(0);
             const [scoreData, setScoreData] = useState(null);
+            const [isNewRecord, setIsNewRecord] = useState(false);
             
             const [settings, setSettings] = useState(() => {
                 const saved = localStorage.getItem('letter_settings_v8');
@@ -1446,6 +1516,8 @@
                 setCurrentIndex(0);
                 setUserAnswers([]);
                 setInput("");
+                setScoreData(null);
+                setIsNewRecord(false);
                 setIsAnswerShown(type === 'conversion' ? settings.alwaysShowAnswer : false);
                 
                 if (type === 'conversion') {
@@ -1502,18 +1574,34 @@
                 
                 const targetStr = questions.map(q => q.pair).join('');
                 let mistakes = 0;
-                // Simple Levenshtein or just character mismatch? 
-                // Let's stick to simple index mismatch for now as lengths match usually
                 const len = Math.max(targetStr.length, input.length);
                 for(let i=0; i<len; i++) {
                     if (input[i] !== targetStr[i]) mistakes++;
                 }
                 
                 const time = endT - startTime;
-                const penaltySeconds = mistakes * 30; // 30s per mistake as requested
+                const penaltySeconds = mistakes * 30; // 30s per mistake
                 const finalScore = time + (penaltySeconds * 1000);
-                const correctCount = len - mistakes; // Approximate
+                const correctCount = len - mistakes; 
+
+                // Save Record
+                const records = JSON.parse(localStorage.getItem('letter_records') || '[]');
+                const best = records.length > 0 ? Math.min(...records.map(r => r.finalScore)) : null;
+                const isNew = best === null || finalScore < best;
+
+                const newRecord = {
+                    timestamp: Date.now(),
+                    memoryLength: settings.memoryLength,
+                    time,
+                    penaltySeconds,
+                    finalScore,
+                    accuracy: correctCount
+                };
+                localStorage.setItem('letter_records', JSON.stringify([...records, newRecord].slice(-100)));
+
+                if(isNew) confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
                 
+                setIsNewRecord(isNew);
                 setScoreData({
                     time,
                     penaltySeconds,
@@ -1528,11 +1616,7 @@
             useEffect(() => {
                 let timer;
                 if (gameState === 'training' && settings.autoNext > 0) {
-                    if (trainingType === 'conversion') {
-                         
-                    } else {
-                         timer = setTimeout(() => handleNext(), settings.autoNext * 1000);
-                    }
+                     timer = setTimeout(() => handleNext(), settings.autoNext * 1000);
                 }
                 return () => clearTimeout(timer);
             }, [gameState, currentIndex, settings.autoNext, trainingType]);
@@ -1591,11 +1675,13 @@
                             <span className="font-black text-amber-700 uppercase tracking-widest">{currentIndex + 1} / {questions.length}</span>
                         </div>
                         
-                        <div className="flex-grow flex flex-col items-center justify-center">
-                            <div className="text-8xl font-black text-amber-800 mb-4">{q.pair}</div>
+                        <div className="flex-grow flex flex-col items-center justify-center w-full">
+                            <div className="flex-grow flex items-center justify-center">
+                                <div className="text-9xl font-black text-amber-800 text-center">{q.pair}</div>
+                            </div>
                             
                             {trainingType === 'conversion' && (
-                                <>
+                                <div className="w-full flex flex-col items-center pb-8">
                                     <div className="text-xs font-bold text-amber-600 mb-4 bg-amber-100 px-3 py-1 rounded-full">{t.accuracyRate}: {accuracy}% ({s.ok}/{totalAttempts})</div>
 
                                     <div className="h-32 flex items-center justify-center w-full mb-4">
@@ -1613,19 +1699,21 @@
                                         <button onClick={() => handleResult(true)} className="py-6 bg-green-100 text-green-600 font-black rounded-2xl shadow-sm active:scale-95 transition-all text-xl">OK</button>
                                     </div>
                                     <button onClick={() => setGameState('menu')} className="mt-6 text-slate-400 font-bold text-sm underline">トレーニングを終了</button>
-                                </>
+                                </div>
                             )}
 
                             {trainingType === 'memory' && (
-                                <MemoryNavControls 
-                                    onFirst={handleFirst} 
-                                    onPrev={handlePrev} 
-                                    onNext={handleNext} 
-                                    onFinish={() => setGameState('recall')} 
-                                    current={currentIndex}
-                                    total={questions.length}
-                                    t={t}
-                                />
+                                <div className="w-full pb-8">
+                                    <MemoryNavControls 
+                                        onFirst={handleFirst} 
+                                        onPrev={handlePrev} 
+                                        onNext={handleNext} 
+                                        onFinish={() => setGameState('recall')} 
+                                        current={currentIndex}
+                                        total={questions.length}
+                                        t={t}
+                                    />
+                                </div>
                             )}
                         </div>
                     </div>
@@ -1641,14 +1729,12 @@
                             <div className="w-8"></div>
                         </div>
                         <div className="flex-grow flex flex-col items-center justify-center max-w-md mx-auto w-full">
-                            <div className="text-sm font-bold text-slate-400 mb-2 w-full text-left">覚えた文字を入力 (ヒントなし)</div>
                             <input 
                                 type="text" 
                                 value={input} 
                                 autoFocus
                                 onChange={e => setInput(e.target.value)} 
-                                className="w-full p-6 text-2xl font-bold border-4 border-amber-200 rounded-3xl outline-none focus:border-amber-500 bg-white shadow-lg mb-8" 
-                                placeholder="あかさたな..." 
+                                className="w-full p-6 text-3xl font-bold border-4 border-amber-200 rounded-3xl outline-none focus:border-amber-500 bg-white shadow-lg mb-8 text-center" 
                             />
                             <button onClick={checkMemory} className="w-full py-6 bg-amber-600 text-white font-black text-xl rounded-2xl shadow-lg active:scale-95">{t.checkResult}</button>
                         </div>
@@ -1656,9 +1742,11 @@
                 );
             }
 
-            if (gameState === 'result') {
+            if (gameState === 'result' && scoreData) {
                 const targetStr = questions.map(q => q.pair).join('');
-                
+                const records = JSON.parse(localStorage.getItem('letter_records') || '[]');
+                const best = records.length > 0 ? Math.min(...records.map(r => r.finalScore)) : null;
+
                 return (
                     <div className="h-full flex flex-col p-4 overflow-y-auto no-scrollbar">
                         <div className="flex justify-between items-center mb-6 pt-2">
@@ -1667,8 +1755,10 @@
                         </div>
                         
                         <div className="w-full bg-amber-500 text-white rounded-[2.5rem] p-8 sm:p-10 mb-8 shadow-2xl relative flex flex-col items-center text-center">
+                            {isNewRecord && (<div className="absolute top-0 right-0 bg-yellow-400 text-yellow-900 text-[10px] font-black px-4 py-1.5 rounded-bl-2xl uppercase tracking-widest shadow-md">{t.newRecord}</div>)}
                             <div className="text-[11px] font-black opacity-60 uppercase tracking-widest mb-1">{t.finalScore}</div>
                             <div className="text-6xl sm:text-7xl font-mono font-black mb-4 tracking-tighter drop-shadow-lg truncate w-full">{formatTime(scoreData.finalScore)}</div>
+                            <div className="flex items-center gap-2 mb-10 bg-black/10 px-5 py-2 rounded-full"><i className="fa-solid fa-crown text-yellow-400 text-xs"></i><span className="text-sm font-black tracking-widest uppercase">{t.bestScore}: {best ? formatTime(Math.min(best, scoreData.finalScore)) : formatTime(scoreData.finalScore)}</span></div>
                             <div className="w-full pt-8 border-t border-white/20">
                                 <div className="grid grid-cols-2 w-full gap-4">
                                     <div className="flex flex-col items-center"><div className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-1">{t.rawTime}</div><div className="font-mono font-black text-2xl">{formatTime(scoreData.time)}</div></div>
@@ -1680,10 +1770,10 @@
                             </div>
                         </div>
 
-                        <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 mb-10 flex-grow">
+                        <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 mb-6 flex-grow flex flex-col">
                              <div className="mb-4">
                                 <div className="text-xs font-bold text-slate-400 mb-1">正解</div>
-                                <div className="text-xl font-bold text-slate-700 tracking-widest break-all">{targetStr}</div>
+                                <div className="text-xl font-bold text-slate-700 tracking-widest break-all w-full">{targetStr}</div>
                              </div>
                              <div>
                                 <div className="text-xs font-bold text-slate-400 mb-1">あなたの回答</div>
@@ -1699,13 +1789,16 @@
                              </div>
                         </div>
                         
-                        <button onClick={() => startTraining('memory')} className="w-full py-6 bg-slate-900 text-white font-black rounded-[2rem] shadow-lg mb-4 active:scale-95">{t.retry}</button>
+                        <div className="space-y-4 pb-12 mt-auto">
+                             <button onClick={() => startTraining('memory')} className="w-full py-6 bg-slate-900 text-white font-black rounded-[2rem] shadow-lg mb-4 active:scale-95 transition-all"><i className="fa-solid fa-rotate-right mr-3"></i> {t.retry}</button>
+                             <button onClick={() => setGameState('menu')} className="w-full py-6 bg-white border-2 border-slate-100 text-slate-600 text-xl font-black rounded-[2rem] active:scale-95 transition-all"><i className="fa-solid fa-check mr-3"></i> {t.finish}</button>
+                        </div>
                     </div>
                 );
             }
             return null;
         };
-        // ... (HomeView and App same)
+
         const HomeView = ({ onSelectMode, onOpenSettings, t }) => {
             const modes = [
                 { id: 'calendar', label: t.calendar, icon: 'fa-calendar-days', color: 'bg-indigo-500', desc: t.descCal },
